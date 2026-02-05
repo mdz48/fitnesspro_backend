@@ -7,7 +7,7 @@ from app.services.user_service import UserService
 user_router = APIRouter()
 
 
-@user_router.post("/users/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@user_router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def create_user(user: UserCreate, db: Session = Depends(get_db)):
     """Crea un nuevo usuario"""
     return UserService.create_user(db, user)
@@ -25,7 +25,7 @@ def login_user(email: str = Form(...), password: str = Form(...), db: Session = 
     return UserService.login_user(db, email, password)
 
 
-@user_router.get("/users/", response_model=list[UserResponse])
+@user_router.get("/users", response_model=list[UserResponse])
 def read_users(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
     """Obtiene una lista paginada de usuarios"""
     return UserService.get_all_users(db, skip, limit)

@@ -7,7 +7,7 @@ from app.services.list_service import ListService
 list_routes = APIRouter()
 
 
-@list_routes.post("/lists/", response_model=ListResponse, status_code=status.HTTP_201_CREATED)
+@list_routes.post("/lists", response_model=ListResponse, status_code=status.HTTP_201_CREATED)
 def create_list(list_item: ListCreate, db: Session = Depends(get_db)):
     """Crea una nueva lista"""
     return ListService.create_list(db, list_item)
@@ -32,7 +32,7 @@ def update_list(list_id: int, list_item: ListCreate, db: Session = Depends(get_d
     return ListService.update_list(db, list_id, list_item)
 
 
-@list_routes.get("/lists/", response_model=list[ListResponse])
+@list_routes.get("/lists", response_model=list[ListResponse])
 def get_all_lists(db: Session = Depends(get_db)):
     """Obtiene todas las listas"""
     return ListService.get_all_lists(db)

@@ -7,7 +7,7 @@ from app.services.recipe_service import RecipeService
 recipe_router = APIRouter()
 
 
-@recipe_router.post("/recipes/", response_model=RecipeResponse, status_code=status.HTTP_201_CREATED)
+@recipe_router.post("/recipes", response_model=RecipeResponse, status_code=status.HTTP_201_CREATED)
 def create_recipe(recipe: RecipeCreate, db: Session = Depends(get_db)):
     """Crea una nueva receta"""
     return RecipeService.create_recipe(db, recipe)
@@ -19,7 +19,7 @@ def read_recipe(recipe_id: int, db: Session = Depends(get_db)):
     return RecipeService.get_recipe_by_id(db, recipe_id)
 
 
-@recipe_router.get("/recipes/", response_model=list[RecipeResponse])
+@recipe_router.get("/recipes", response_model=list[RecipeResponse])
 def read_recipes(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
     """Obtiene una lista paginada de recetas"""
     return RecipeService.get_all_recipes(db, skip, limit)
@@ -38,7 +38,7 @@ def update_recipe(recipe_id: int, recipe: RecipeCreate, db: Session = Depends(ge
     return RecipeService.update_recipe(db, recipe_id, recipe)
 
 
-@recipe_router.get("/recipes/{user_id}/", response_model=list[RecipeResponse])
+@recipe_router.get("/recipes/{user_id}", response_model=list[RecipeResponse])
 def read_recipes_by_user(user_id: int, db: Session = Depends(get_db)):
     """Obtiene todas las recetas de un usuario"""
     return RecipeService.get_recipes_by_user(db, user_id)
