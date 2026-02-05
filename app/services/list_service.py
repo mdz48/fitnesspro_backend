@@ -4,7 +4,7 @@ Servicio para la lógica de negocio de listas
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from app.models.List import List
-from app.models.RecipieList import RecipieList
+from app.models.RecipeList import RecipeList
 from app.schemas.list_schema import ListCreate
 
 

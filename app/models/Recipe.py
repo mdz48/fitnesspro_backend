@@ -2,8 +2,8 @@ from app.shared.config.database import Base
 from sqlalchemy import Column, DateTime, Integer, String, ForeignKey
 from datetime import datetime
 
-class Recipie(Base):
-    __tablename__ = "recipies"
+class Recipe(Base):
+    __tablename__ = "recipes"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False)

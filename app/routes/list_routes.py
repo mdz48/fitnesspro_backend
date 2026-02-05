@@ -44,8 +44,8 @@ def get_lists_by_user(user_id: int, db: Session = Depends(get_db)):
     return ListService.get_lists_by_user(db, user_id)
 
 
-@list_routes.get("/lists/{list_id}/recipies", response_model=list[ListResponse])
-def get_recipies_in_list(list_id: int, db: Session = Depends(get_db)):
+@list_routes.get("/lists/{list_id}/recipes", response_model=list[ListResponse])
+def get_recipes_in_list(list_id: int, db: Session = Depends(get_db)):
     """Obtiene todas las recetas de una lista"""
     return ListService.get_recipes_in_list(db, list_id)
 
