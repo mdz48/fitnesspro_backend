@@ -19,7 +19,7 @@ def read_user(user_id: int, db: Session = Depends(get_db)):
     return UserService.get_user_by_id(db, user_id)
 
 
-@user_router.post("/users/login", response_model=LoginResponse)
+@user_router.post("/login", response_model=LoginResponse)
 def login_user(email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
     """Autentica un usuario y retorna un token de acceso"""
     return UserService.login_user(db, email, password)
