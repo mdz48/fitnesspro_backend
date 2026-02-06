@@ -8,7 +8,8 @@ class RecipeBase(BaseModel):
     ingredients: str
     instructions: str
     user_id: int | None = 1
-    scheduled_datetime: Optional[datetime] = None
+    scheduled_days: Optional[set[str]] = None
+    meal_type: Optional[str] = None
     
 class RecipeCreate(RecipeBase):
     pass

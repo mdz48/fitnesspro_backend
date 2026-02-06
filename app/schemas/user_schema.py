@@ -1,13 +1,13 @@
 from pydantic import BaseModel, ConfigDict, EmailStr
 
 class UserBase(BaseModel):
-    email: EmailStr
-    name: str
-    lastname: str
+    email: EmailStr | None = "1@1.com"
+    name: str | None = "Usuario"
+    lastname: str | None = "Prueba"
     model_config = ConfigDict(from_attributes=True)
 
 class UserCreate(UserBase):
-    password: str
+    password: str | None = "1"
 
 class UserResponse(UserBase):
     id: int

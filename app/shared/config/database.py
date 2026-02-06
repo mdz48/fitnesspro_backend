@@ -21,8 +21,10 @@ try:
         pass
 except Exception as e:
     print(f"Error al conectar a la base de datos RDS, conectando a localhost para desarrollo: {e}")
-    DB_URL = os.getenv("DB_URL")
-    SQLALCHEMY_DATABASE_URL = DB_URL 
+    DB_USER_LOCAL = os.getenv("DB_USER_LOCAL", "root")
+    DB_PASSWORD_LOCAL = os.getenv("DB_PASSWORD_LOCAL", "admin123")
+    DB_HOST_LOCAL = os.getenv("DB_HOST_LOCAL", "localhost")
+    SQLALCHEMY_DATABASE_URL = f"mysql+pymysql://{DB_USER_LOCAL}:{DB_PASSWORD_LOCAL}@{DB_HOST_LOCAL}:3306/{db_config['DB_NAME']}"
     engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
