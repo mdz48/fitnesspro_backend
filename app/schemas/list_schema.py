@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 from typing import Optional
-from app.schemas.recipie_schema import RecipeResponse
+from app.schemas.recipe_schema import RecipeResponse
 
 class ListBase(BaseModel):
     list_name: str
