@@ -1,6 +1,3 @@
-"""
-Cliente HTTP para consumir APIs externas
-"""
 import httpx
 from typing import Optional, Dict, Any
 from fastapi import HTTPException
@@ -8,29 +5,13 @@ from app.shared.config.external_api_config import REQUEST_TIMEOUT, CACHE_TTL
 from app.services.cache_service import cache
 
 
-class ExternalAPIClient:
-    """Cliente base para hacer peticiones HTTP a APIs externas con caché"""
-    
+class ExternalAPIClient:    
     def __init__(self, base_url: str, enable_cache: bool = True):
         self.base_url = base_url.rstrip('/')
         self.client = httpx.AsyncClient(timeout=REQUEST_TIMEOUT)
         self.enable_cache = enable_cache
     
     async def get(self, endpoint: str, params: Optional[Dict[str, Any]] = None, use_cache: bool = True) -> Any:
-        """
-        Realiza una petición GET a la API externa con soporte de caché
-        
-        Args:
-            endpoint: Endpoint relativo (ej: '/exercises')
-            params: Parámetros de query string opcionales
-            use_cache: Si debe usar caché (default: True)
-            
-        Returns:
-            Respuesta JSON de la API
-            
-        Raises:
-            HTTPException: Si la petición falla
-        """
         # Intentar obtener del caché primero
         if self.enable_cache and use_cache:
             cached_data = cache.get("api_request", endpoint, params=params)
