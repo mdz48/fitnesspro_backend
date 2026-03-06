@@ -16,7 +16,7 @@ db_config = {
 }
 
 try:
-    SQLALCHEMY_DATABASE_URL = f"mysql+pymysql://{db_config['DB_USER']}:{db_config['DB_PASSWORD']}@{db_config['DB_HOST']}:{db_config['DB_PORT']}/{db_config['DB_NAME']}"
+    # SQLALCHEMY_DATABASE_URL = f"mysql+pymysql://{db_config['DB_USER']}:{db_config['DB_PASSWORD']}@{db_config['DB_HOST']}:{db_config['DB_PORT']}/{db_config['DB_NAME']}"
     engine = create_engine(SQLALCHEMY_DATABASE_URL)
     with engine.connect() as connection:
         pass

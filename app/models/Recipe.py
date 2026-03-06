@@ -15,3 +15,4 @@ class Recipe(Base):
     scheduled_days = Column(SET('Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'), nullable=True, default="")
     meal_type = Column(Enum('Desayuno', 'Comida', 'Cena'), nullable=True, default="")
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
+    image_url = Column(String(255), nullable=True)

@@ -10,6 +10,7 @@ class RecipeBase(BaseModel):
     user_id: int | None = 1
     scheduled_days: Optional[set[str]] = None
     meal_type: Optional[str] = None
+    image_url: Optional[str] = None
     
 class RecipeCreate(RecipeBase):
     pass
