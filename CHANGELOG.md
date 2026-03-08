@@ -3,6 +3,18 @@
 Todos los cambios notables en este proyecto serán documentados en este archivo.
 
 
+## [1.0.1] - 2026-03-08
+
+### Añadido
+
+- **Cálculo de edad automático**: Se eliminó el campo `age` del modelo y esquema de usuarios, y se implementó un cálculo automático basado en la fecha de nacimiento.
+
+### Cambios
+
+- Se eliminó el campo `age` del modelo `User`.
+- Se eliminó el campo `age` del esquema `UserBase`.
+- Se agregó un cálculo automático de edad en el método `create` del servicio de usuarios.
+
 
 ## [1.0.0] - 2026-03-05
 
