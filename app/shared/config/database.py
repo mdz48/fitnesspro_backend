@@ -12,19 +12,17 @@ db_config = {
     "DB_HOST": os.getenv("DB_HOST"),
     "DB_PORT": os.getenv("DB_PORT"),
     "DB_NAME": os.getenv("DB_NAME"),
+    "LOCAL_URL": os.getenv("LOCAL_URL")
 }
 
 try:
-    SQLALCHEMY_DATABASE_URL = f"mysql+pymysql://{db_config['DB_USER']}:{db_config['DB_PASSWORD']}@{db_config['DB_HOST']}:{db_config['DB_PORT']}/{db_config['DB_NAME']}"
+    # SQLALCHEMY_DATABASE_URL = f"mysql+pymysql://{db_config['DB_USER']}:{db_config['DB_PASSWORD']}@{db_config['DB_HOST']}:{db_config['DB_PORT']}/{db_config['DB_NAME']}"
     engine = create_engine(SQLALCHEMY_DATABASE_URL)
     with engine.connect() as connection:
         pass
 except Exception as e:
     print(f"Error al conectar a la base de datos RDS, conectando a localhost para desarrollo: {e}")
-    DB_USER_LOCAL = os.getenv("DB_USER_LOCAL", "root")
-    DB_PASSWORD_LOCAL = os.getenv("DB_PASSWORD_LOCAL", "admin123")
-    DB_HOST_LOCAL = os.getenv("DB_HOST_LOCAL", "localhost")
-    SQLALCHEMY_DATABASE_URL = f"mysql+pymysql://{DB_USER_LOCAL}:{DB_PASSWORD_LOCAL}@{DB_HOST_LOCAL}:3306/{db_config['DB_NAME']}"
+    SQLALCHEMY_DATABASE_URL = db_config["LOCAL_URL"]
     engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
