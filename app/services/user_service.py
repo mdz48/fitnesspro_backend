@@ -47,7 +47,11 @@ class UserService:
             email=user_data.email,
             name=user_data.name,
             lastname=user_data.lastname,
-            password=hashed_password
+            password=hashed_password,
+            birthdate=user_data.birthdate,
+            weight=user_data.weight,
+            height=user_data.height,
+            gender=user_data.gender
         )
         
         return self.repository.create(new_user)
