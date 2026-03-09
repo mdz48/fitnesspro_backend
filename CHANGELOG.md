@@ -1,6 +1,14 @@
 # Changelog
 
-Todos los cambios notables en este proyecto serán documentados en este archivo.
+## [1.0.4] - 2026-03-09
+
+### Añadido
+- Filtro para ejercicios locales por parte del cuerpo, musculo, equipo, dificultad y tipo.
+
+## [1.0.3] - 2026-03-08
+
+### Cambios
+- No se estaba cacheando los ejercicios traducidos
 
 ## [1.0.2] - 2026-03-08
 

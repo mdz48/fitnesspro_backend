@@ -98,12 +98,7 @@ async def update_exercise(
     difficulty: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None),
     ):
-        # Primero obtener el ejercicio existente para mantener la imagen anterior si no se sube una nueva
-        existing_exercise = await service.get_exercises_from_db() # Esto debería ser filtrado por ID? No, hay un get_by_id en el servicio
-        
-        # Necesitamos una forma de obtener la URL de imagen actual si no se proporciona una nueva
-        # Pero eso lo puede manejar el servicio si le pasamos None en image_url
-        
+        existing_exercise = await service.get_exercises_from_db()
         image_url = None
         if image and image.filename:
             if not image.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.mp4')):
@@ -114,7 +109,7 @@ async def update_exercise(
                 raise HTTPException(status_code=500, detail="Failed to upload image to S3")
         
         def parse_form_list(items: Optional[List[str]]) -> Optional[List[str]]:
-            if items is None: # Si es None, no lo actualizamos (mantenemos el anterior)
+            if items is None:
                 return None
             result = set()
             for item in items:
@@ -149,6 +144,25 @@ async def delete_exercise(exercise_id: int, service: ExerciseServiceDep):
 async def get_exercises_from_db(service: ExerciseServiceDep):
     return await service.get_exercises_from_db()
 
+@exercise_router.get("/exercises/local/bodypart/{bodypart}")
+async def get_exercises_from_db_by_bodypart(bodypart: str, service: ExerciseServiceDep):
+    return await service.get_exercises_from_db_by_bodypart(bodypart)
+
+@exercise_router.get("/exercises/local/target/{target}")
+async def get_exercises_from_db_by_target(target: str, service: ExerciseServiceDep):
+    return await service.get_exercises_from_db_by_target(target)
+
+@exercise_router.get("/exercises/local/equipment/{equipment}")
+async def get_exercises_from_db_by_equipment(equipment: str, service: ExerciseServiceDep):
+    return await service.get_exercises_from_db_by_equipment(equipment)
+
+@exercise_router.get("/exercises/local/difficulty/{difficulty}")
+async def get_exercises_from_db_by_difficulty(difficulty: str, service: ExerciseServiceDep):
+    return await service.get_exercises_from_db_by_difficulty(difficulty)
+
+@exercise_router.get("/exercises/local/type/{exercise_type}")
+async def get_exercises_from_db_by_type(exercise_type: str, service: ExerciseServiceDep):
+    return await service.get_exercises_from_db_by_type(exercise_type)
 
 @exercise_router.get("/exercises/bodypart/{bodypart}", response_model=ExerciseListResponse)
 async def get_exercises_by_bodypart(bodypart: str, service: ExerciseServiceDep):

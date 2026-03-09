@@ -334,4 +334,107 @@ class ExerciseService:
         self.repository.delete(db_exercise)
         return {"message": f"Ejercicio con id {exercise_id} eliminado exitosamente"}
     
+    async def get_exercises_from_db_by_bodypart(self, bodypart: str) -> List[ExerciseDatabaseResponse]:
+        """Obtiene los ejercicios de un bodypart específico desde la base de datos"""
+        exercises = self.repository.get_by_bodypart(bodypart)
+        return [
+            ExerciseDatabaseResponse(
+                id=e.id,
+                name=e.name,
+                description=e.description,
+                user_id=e.user_id,
+                scheduled_days=list(e.scheduled_days) if e.scheduled_days else [],
+                image_url=e.image_url or "",
+                bodyparts=list(e.bodyparts) if e.bodyparts else [],
+                equipments=list(e.equipments) if e.equipments else [],
+                targetMuscles=list(e.targetMuscles) if e.targetMuscles else [],
+                secondaryMuscles=list(e.secondaryMuscles) if e.secondaryMuscles else [],
+                exercise_type=e.exercise_type.value if e.exercise_type else "",
+                instructions=e.instructions or "",
+                difficulty=e.difficulty
+            ) for e in exercises
+        ]
     
+    async def get_exercises_from_db_by_target(self, target: str) -> List[ExerciseDatabaseResponse]:
+        """Obtiene los ejercicios de un target específico desde la base de datos"""
+        exercises = self.repository.get_by_target(target)
+        return [
+            ExerciseDatabaseResponse(
+                id=e.id,
+                name=e.name,
+                description=e.description,
+                user_id=e.user_id,
+                scheduled_days=list(e.scheduled_days) if e.scheduled_days else [],
+                image_url=e.image_url or "",
+                bodyparts=list(e.bodyparts) if e.bodyparts else [],
+                equipments=list(e.equipments) if e.equipments else [],
+                targetMuscles=list(e.targetMuscles) if e.targetMuscles else [],
+                secondaryMuscles=list(e.secondaryMuscles) if e.secondaryMuscles else [],
+                exercise_type=e.exercise_type.value if e.exercise_type else "",
+                instructions=e.instructions or "",
+                difficulty=e.difficulty
+            ) for e in exercises
+        ]
+    
+    async def get_exercises_from_db_by_equipment(self, equipment: str) -> List[ExerciseDatabaseResponse]:
+        """Obtiene los ejercicios de un equipment específico desde la base de datos"""
+        exercises = self.repository.get_by_equipment(equipment)
+        return [
+            ExerciseDatabaseResponse(
+                id=e.id,
+                name=e.name,
+                description=e.description,
+                user_id=e.user_id,
+                scheduled_days=list(e.scheduled_days) if e.scheduled_days else [],
+                image_url=e.image_url or "",
+                bodyparts=list(e.bodyparts) if e.bodyparts else [],
+                equipments=list(e.equipments) if e.equipments else [],
+                targetMuscles=list(e.targetMuscles) if e.targetMuscles else [],
+                secondaryMuscles=list(e.secondaryMuscles) if e.secondaryMuscles else [],
+                exercise_type=e.exercise_type.value if e.exercise_type else "",
+                instructions=e.instructions or "",
+                difficulty=e.difficulty
+            ) for e in exercises
+        ]
+    
+    async def get_exercises_from_db_by_difficulty(self, difficulty: str) -> List[ExerciseDatabaseResponse]:
+        """Obtiene los ejercicios de una dificultad específica desde la base de datos"""
+        exercises = self.repository.get_by_difficulty(difficulty)
+        return [
+            ExerciseDatabaseResponse(
+                id=e.id,
+                name=e.name,
+                description=e.description,
+                user_id=e.user_id,
+                scheduled_days=list(e.scheduled_days) if e.scheduled_days else [],
+                image_url=e.image_url or "",
+                bodyparts=list(e.bodyparts) if e.bodyparts else [],
+                equipments=list(e.equipments) if e.equipments else [],
+                targetMuscles=list(e.targetMuscles) if e.targetMuscles else [],
+                secondaryMuscles=list(e.secondaryMuscles) if e.secondaryMuscles else [],
+                exercise_type=e.exercise_type.value if e.exercise_type else "",
+                instructions=e.instructions or "",
+                difficulty=e.difficulty
+            ) for e in exercises
+        ]
+    
+    async def get_exercises_from_db_by_type(self, exercise_type: str) -> List[ExerciseDatabaseResponse]:
+        """Obtiene los ejercicios de un tipo específico desde la base de datos"""
+        exercises = self.repository.get_by_type(exercise_type)
+        return [
+            ExerciseDatabaseResponse(
+                id=e.id,
+                name=e.name,
+                description=e.description,
+                user_id=e.user_id,
+                scheduled_days=list(e.scheduled_days) if e.scheduled_days else [],
+                image_url=e.image_url or "",
+                bodyparts=list(e.bodyparts) if e.bodyparts else [],
+                equipments=list(e.equipments) if e.equipments else [],
+                targetMuscles=list(e.targetMuscles) if e.targetMuscles else [],
+                secondaryMuscles=list(e.secondaryMuscles) if e.secondaryMuscles else [],
+                exercise_type=e.exercise_type.value if e.exercise_type else "",
+                instructions=e.instructions or "",
+                difficulty=e.difficulty
+            ) for e in exercises
+        ]
