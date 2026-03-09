@@ -156,7 +156,8 @@ class ExerciseService:
                 targetMuscles=list(e.targetMuscles) if e.targetMuscles else [],
                 secondaryMuscles=list(e.secondaryMuscles) if e.secondaryMuscles else [],
                 exercise_type=e.exercise_type.value if e.exercise_type else "",
-                instructions=e.instructions or ""
+                instructions=e.instructions or "",
+                difficulty=e.difficulty
             ) for e in exercises
         ]
         
@@ -176,7 +177,8 @@ class ExerciseService:
                 targetMuscles=list(e.targetMuscles) if e.targetMuscles else [],
                 secondaryMuscles=list(e.secondaryMuscles) if e.secondaryMuscles else [],
                 exercise_type=e.exercise_type.value if e.exercise_type else "",
-                instructions=e.instructions or ""
+                instructions=e.instructions or "",
+                difficulty=e.difficulty
             ) for e in exercises
         ]
 
@@ -193,7 +195,8 @@ class ExerciseService:
             targetMuscles=set(exercise.targetMuscles) if exercise.targetMuscles else set(),
             secondaryMuscles=set(exercise.secondaryMuscles) if exercise.secondaryMuscles else set(),
             exercise_type=exercise.exercise_type,
-            instructions=exercise.instructions
+            instructions=exercise.instructions,
+            difficulty=exercise.difficulty
         )
         created = self.repository.create(db_exercise)
         return ExerciseDatabaseResponse(
@@ -208,7 +211,8 @@ class ExerciseService:
             targetMuscles=list(created.targetMuscles) if created.targetMuscles else [],
             secondaryMuscles=list(created.secondaryMuscles) if created.secondaryMuscles else [],
             exercise_type=created.exercise_type.value if created.exercise_type else "",
-            instructions=created.instructions or ""
+            instructions=created.instructions or "",
+            difficulty=created.difficulty
         )
 
     async def update_exercise(self, exercise_id: int, exercise: ExerciseDatabaseUpdate) -> ExerciseDatabaseResponse:
@@ -217,17 +221,18 @@ class ExerciseService:
         if not db_exercise:
             raise ValueError(f"Ejercicio con id {exercise_id} no encontrado")
         
-        db_exercise.name = exercise.name
-        db_exercise.description = exercise.description
-        db_exercise.user_id = exercise.user_id
-        db_exercise.scheduled_days = set(exercise.scheduled_days) if exercise.scheduled_days else set()
-        db_exercise.image_url = exercise.image_url
-        db_exercise.bodyparts = set(exercise.bodyparts) if exercise.bodyparts else set()
-        db_exercise.equipments = set(exercise.equipments) if exercise.equipments else set()
-        db_exercise.targetMuscles = set(exercise.targetMuscles) if exercise.targetMuscles else set()
-        db_exercise.secondaryMuscles = set(exercise.secondaryMuscles) if exercise.secondaryMuscles else set()
-        db_exercise.exercise_type = exercise.exercise_type
-        db_exercise.instructions = exercise.instructions
+        if exercise.name is not None: db_exercise.name = exercise.name
+        if exercise.description is not None: db_exercise.description = exercise.description
+        if exercise.user_id is not None: db_exercise.user_id = exercise.user_id
+        if exercise.scheduled_days is not None: db_exercise.scheduled_days = set(exercise.scheduled_days)
+        if exercise.image_url is not None: db_exercise.image_url = exercise.image_url
+        if exercise.bodyparts is not None: db_exercise.bodyparts = set(exercise.bodyparts)
+        if exercise.equipments is not None: db_exercise.equipments = set(exercise.equipments)
+        if exercise.targetMuscles is not None: db_exercise.targetMuscles = set(exercise.targetMuscles)
+        if exercise.secondaryMuscles is not None: db_exercise.secondaryMuscles = set(exercise.secondaryMuscles)
+        if exercise.exercise_type is not None: db_exercise.exercise_type = exercise.exercise_type
+        if exercise.instructions is not None: db_exercise.instructions = exercise.instructions
+        if exercise.difficulty is not None: db_exercise.difficulty = exercise.difficulty
         
         updated = self.repository.update(db_exercise)
         return ExerciseDatabaseResponse(
@@ -242,7 +247,8 @@ class ExerciseService:
             targetMuscles=list(updated.targetMuscles) if updated.targetMuscles else [],
             secondaryMuscles=list(updated.secondaryMuscles) if updated.secondaryMuscles else [],
             exercise_type=updated.exercise_type.value if updated.exercise_type else "",
-            instructions=updated.instructions or ""
+            instructions=updated.instructions or "",
+            difficulty=updated.difficulty
         )
 
     async def delete_exercise(self, exercise_id: int) -> dict:

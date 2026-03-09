@@ -21,5 +21,6 @@ class Exercise(Base):
     secondaryMuscles = Column(SET(*[e.value for e in MuscleEnum]), nullable=True, default="")
     exercise_type = Column(Enum(ExerciseTypeEnum), nullable=True, default="")
     instructions = Column(String(1000), nullable=True, default="")
+    difficulty = Column(Enum("Facil", "Medio", "Dificil"), nullable=False)
     
     user = relationship("User", back_populates="exercises")

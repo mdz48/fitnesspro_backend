@@ -3,7 +3,7 @@ Servicio para la lógica de negocio de recetas
 """
 from fastapi import HTTPException
 from app.models.Recipe import Recipe
-from app.schemas.recipe_schema import RecipeCreate
+from app.schemas.recipe_schema import RecipeCreate, RecipeUpdate
 from app.repositories.recipe_repository import RecipeRepository
 
 
@@ -78,7 +78,7 @@ class RecipeService:
             raise HTTPException(status_code=404, detail="Recipe not found")
         self.repository.delete(recipe)
     
-    def update_recipe(self, recipe_id: int, recipe_data: RecipeCreate) -> Recipe:
+    def update_recipe(self, recipe_id: int, recipe_data: RecipeUpdate) -> Recipe:
         """
         Actualiza una receta existente
         
@@ -96,9 +96,10 @@ class RecipeService:
         if recipe is None:
             raise HTTPException(status_code=404, detail="Recipe not found")
         
-        # Actualizar campos
+        # Actualizar solo campos no nulos (para soporte parcial con Form)
         for key, value in recipe_data.dict().items():
-            setattr(recipe, key, value)
+            if value is not None:
+                setattr(recipe, key, value)
         
         return self.repository.update(recipe)
     

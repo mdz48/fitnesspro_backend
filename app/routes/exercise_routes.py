@@ -1,11 +1,12 @@
 """
 Rutas para ejercicios (proxy a ExerciseDB API)
 """
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, UploadFile, File, Form, HTTPException
 from typing import List, Optional
 from app.core.dependencies import ExerciseServiceDep
 from app.schemas.exercise_schema import ExerciseListResponse, ExerciseDetailResponse, ExerciseDatabaseCreate, ExerciseDatabaseUpdate, ExerciseDatabaseResponse
 from app.services.cache_service import cache
+from app.shared.config.s3_files import upload_file_to_s3
 
 exercise_router = APIRouter()
 
@@ -23,19 +24,124 @@ async def get_exercises_from_api(
 async def get_exercises_from_db(service: ExerciseServiceDep):
     return await service.get_exercises_from_db()
 
-@exercise_router.post("/exercises")
-async def create_exercise(exercise: ExerciseDatabaseCreate, service: ExerciseServiceDep):
-    return await service.create_exercise(exercise)
+@exercise_router.post("/exercises/local")
+async def create_exercise( 
+    service: ExerciseServiceDep,
+    name: str = Form(...),
+    description: str = Form(...),
+    user_id: int = Form(...),
+    scheduled_days: Optional[List[str]] = Form(None),
+    bodyparts: Optional[List[str]] = Form(None),
+    equipment: Optional[List[str]] = Form(None),
+    target_muscles: Optional[List[str]] = Form(None),
+    secondary_muscles: Optional[List[str]] = Form(None),
+    exercise_type: Optional[str] = Form(None),
+    instructions: Optional[str] = Form(None),
+    difficulty: str = Form("Facil"),
+    image: Optional[UploadFile] = File(None),
+    ):
+        image_url = ""
+        if image and image.filename:
+            if not image.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.mp4')):
+                raise HTTPException(status_code=400, detail="Only jpg, jpeg, png, gif or mp4 files are allowed")
+            
+            image_url = upload_file_to_s3(image)
+            if not image_url:
+                raise HTTPException(status_code=500, detail="Failed to upload image to S3")
+        
+        def parse_form_list(items: Optional[List[str]]) -> Optional[List[str]]:
+            if not items:
+                return []
+            result = set()
+            for item in items:
+                for s in item.split(","):
+                    val = s.strip()
+                    if val:
+                        result.add(val)
+            return list(result)
 
-@exercise_router.get("/exercises/user/{user_id}")
+        exercise_data = ExerciseDatabaseCreate(
+            name=name,
+            description=description,
+            user_id=user_id,
+            scheduled_days=parse_form_list(scheduled_days),
+            bodyparts=parse_form_list(bodyparts),
+            equipments=parse_form_list(equipment),
+            targetMuscles=parse_form_list(target_muscles),
+            secondaryMuscles=parse_form_list(secondary_muscles),
+            exercise_type=exercise_type,
+            instructions=instructions,
+            difficulty=difficulty.capitalize(),
+            image_url=image_url
+        )
+        return await service.create_exercise(exercise_data)
+
+
+@exercise_router.get("/exercises/local/user/{user_id}")
 async def get_exercises_by_user(user_id: int, service: ExerciseServiceDep):
     return await service.get_exercises_by_user(user_id)
 
-@exercise_router.put("/exercises/{exercise_id}")
-async def update_exercise(exercise_id: int, exercise: ExerciseDatabaseUpdate, service: ExerciseServiceDep):
-    return await service.update_exercise(exercise_id, exercise)
+@exercise_router.put("/exercises/local/{exercise_id}")
+async def update_exercise(
+    exercise_id: int, 
+    service: ExerciseServiceDep,
+    name: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+    user_id: Optional[int] = Form(None),
+    scheduled_days: Optional[List[str]] = Form(None),
+    bodyparts: Optional[List[str]] = Form(None),
+    equipment: Optional[List[str]] = Form(None),
+    target_muscles: Optional[List[str]] = Form(None),
+    secondary_muscles: Optional[List[str]] = Form(None),
+    exercise_type: Optional[str] = Form(None),
+    instructions: Optional[str] = Form(None),
+    difficulty: Optional[str] = Form(None),
+    image: Optional[UploadFile] = File(None),
+    ):
+        # Primero obtener el ejercicio existente para mantener la imagen anterior si no se sube una nueva
+        existing_exercise = await service.get_exercises_from_db() # Esto debería ser filtrado por ID? No, hay un get_by_id en el servicio
+        
+        # Necesitamos una forma de obtener la URL de imagen actual si no se proporciona una nueva
+        # Pero eso lo puede manejar el servicio si le pasamos None en image_url
+        
+        image_url = None
+        if image and image.filename:
+            if not image.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.mp4')):
+                raise HTTPException(status_code=400, detail="Only jpg, jpeg, png, gif or mp4 files are allowed")
+            
+            image_url = upload_file_to_s3(image)
+            if not image_url:
+                raise HTTPException(status_code=500, detail="Failed to upload image to S3")
+        
+        def parse_form_list(items: Optional[List[str]]) -> Optional[List[str]]:
+            if items is None: # Si es None, no lo actualizamos (mantenemos el anterior)
+                return None
+            result = set()
+            for item in items:
+                for s in item.split(","):
+                    val = s.strip()
+                    if val:
+                        result.add(val)
+            return list(result)
 
-@exercise_router.delete("/exercises/{exercise_id}")
+        exercise_data = ExerciseDatabaseUpdate(
+            id=exercise_id,
+            name=name,
+            description=description,
+            user_id=user_id,
+            scheduled_days=parse_form_list(scheduled_days),
+            bodyparts=parse_form_list(bodyparts),
+            equipments=parse_form_list(equipment),
+            targetMuscles=parse_form_list(target_muscles),
+            secondaryMuscles=parse_form_list(secondary_muscles),
+            exercise_type=exercise_type,
+            instructions=instructions,
+            difficulty=difficulty.capitalize() if difficulty else None,
+            image_url=image_url
+        )
+        return await service.update_exercise(exercise_id, exercise_data)
+
+@exercise_router.delete("/exercises/local/{exercise_id}")
 async def delete_exercise(exercise_id: int, service: ExerciseServiceDep):
     return await service.delete_exercise(exercise_id)
 

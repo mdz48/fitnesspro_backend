@@ -2,6 +2,16 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo.
 
+## [1.0.2] - 2026-03-08
+
+### Añadido
+- Ahora se pueden subir archivos PNG, JPG y JPEG en las recetas. y mp4 en los ejercicios.
+- Se le agrego dificultad a los ejercicios.
+
+### Cambios
+- Se corrigió el error de que no se pudieran actualizar los campos de las recetas.
+- Se corrigió el error de que no se pudieran actualizar los campos de los ejercicios.
+
 
 ## [1.0.1] - 2026-03-08
 
@@ -16,7 +26,7 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 - Se agregó un cálculo automático de edad en el método `create` del servicio de usuarios.
 
 
-## [1.0.0] - 2026-03-05
+## [1.0.0] - 2026-03-08
 
 ### Añadido
 
