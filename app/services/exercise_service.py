@@ -10,6 +10,8 @@ from app.services.translation_service import translation_service
 
 
 
+from app.services.cache_service import cache
+
 class ExerciseService:
     """Servicio para consumir ExerciseDB API y gestionar ejercicios en BD"""
     
@@ -23,6 +25,7 @@ class ExerciseService:
         """
         self.api_client = api_client
         self.repository = repository
+        self.cache_ttl = 3600 # 1 hora de caché
 
     async def _process_response(self, response: Any, is_list_of_strings: bool = False) -> Any:
         """Procesa y traduce la respuesta de la API"""
@@ -49,6 +52,11 @@ class ExerciseService:
         Returns:
             Lista de ejercicios
         """
+        # Intentar obtener del caché
+        cached_data = cache.get("exercises", limit=limit, offset=offset)
+        if cached_data:
+            return cached_data
+
         params = {}
         if limit is not None:
             params['limit'] = limit
@@ -56,7 +64,11 @@ class ExerciseService:
             params['offset'] = offset
             
         response = await self.api_client.get('/exercises', params=params)
-        return await self._process_response(response)
+        processed_data = await self._process_response(response)
+        
+        # Guardar en caché
+        cache.set("exercises", processed_data, self.cache_ttl, limit=limit, offset=offset)
+        return processed_data
     
     async def get_exercise_by_id(self, exercise_id: str) -> Dict[str, Any]:
         """
@@ -68,8 +80,17 @@ class ExerciseService:
         Returns:
             Datos del ejercicio
         """
+        # Intentar obtener del caché
+        cached_data = cache.get("exercise_detail", id=exercise_id)
+        if cached_data:
+            return cached_data
+
         response = await self.api_client.get(f'/exercises/{exercise_id}')
-        return await self._process_response(response)
+        processed_data = await self._process_response(response)
+
+        # Guardar en caché
+        cache.set("exercise_detail", processed_data, self.cache_ttl, id=exercise_id)
+        return processed_data
     
     async def get_exercises_by_bodypart(self, bodypart: str) -> Dict[str, Any]:
         """
@@ -81,8 +102,17 @@ class ExerciseService:
         Returns:
             Lista de ejercicios
         """
+        # Intentar obtener del caché
+        cached_data = cache.get("exercises_bodypart", bodypart=bodypart)
+        if cached_data:
+            return cached_data
+
         response = await self.api_client.get('/exercises/filter', params={'bodyParts': bodypart})
-        return await self._process_response(response)
+        processed_data = await self._process_response(response)
+
+        # Guardar en caché
+        cache.set("exercises_bodypart", processed_data, self.cache_ttl, bodypart=bodypart)
+        return processed_data
     
     async def get_exercises_by_target(self, target: str) -> Dict[str, Any]:
         """
@@ -94,8 +124,17 @@ class ExerciseService:
         Returns:
             Lista de ejercicios
         """
+        # Intentar obtener del caché
+        cached_data = cache.get("exercises_target", target=target)
+        if cached_data:
+            return cached_data
+
         response = await self.api_client.get('/exercises/filter', params={'targetMuscles': target})
-        return await self._process_response(response)
+        processed_data = await self._process_response(response)
+
+        # Guardar en caché
+        cache.set("exercises_target", processed_data, self.cache_ttl, target=target)
+        return processed_data
     
     async def get_exercises_by_equipment(self, equipment: str) -> Dict[str, Any]:
         """
@@ -107,8 +146,17 @@ class ExerciseService:
         Returns:
             Lista de ejercicios
         """
+        # Intentar obtener del caché
+        cached_data = cache.get("exercises_equipment", equipment=equipment)
+        if cached_data:
+            return cached_data
+
         response = await self.api_client.get('/exercises/filter', params={'equipments': equipment})
-        return await self._process_response(response)
+        processed_data = await self._process_response(response)
+
+        # Guardar en caché
+        cache.set("exercises_equipment", processed_data, self.cache_ttl, equipment=equipment)
+        return processed_data
     
     async def get_body_parts(self) -> List[str]:
         """
@@ -117,8 +165,17 @@ class ExerciseService:
         Returns:
             Lista de partes del cuerpo
         """
+        # Intentar obtener del caché
+        cached_data = cache.get("metadata_bodyparts")
+        if cached_data:
+            return cached_data
+
         response = await self.api_client.get('/exercises/bodyPartList')
-        return await self._process_response(response, is_list_of_strings=True)
+        processed_data = await self._process_response(response, is_list_of_strings=True)
+
+        # Guardar en caché
+        cache.set("metadata_bodyparts", processed_data, self.cache_ttl)
+        return processed_data
     
     async def get_target_muscles(self) -> List[str]:
         """
@@ -127,8 +184,17 @@ class ExerciseService:
         Returns:
             Lista de músculos
         """
+        # Intentar obtener del caché
+        cached_data = cache.get("metadata_targets")
+        if cached_data:
+            return cached_data
+
         response = await self.api_client.get('/exercises/targetList')
-        return await self._process_response(response, is_list_of_strings=True)
+        processed_data = await self._process_response(response, is_list_of_strings=True)
+
+        # Guardar en caché
+        cache.set("metadata_targets", processed_data, self.cache_ttl)
+        return processed_data
     
     async def get_equipment_list(self) -> List[str]:
         """
@@ -137,8 +203,17 @@ class ExerciseService:
         Returns:
             Lista de equipos
         """
+        # Intentar obtener del caché
+        cached_data = cache.get("metadata_equipment")
+        if cached_data:
+            return cached_data
+
         response = await self.api_client.get('/exercises/equipmentList')
-        return await self._process_response(response, is_list_of_strings=True)
+        processed_data = await self._process_response(response, is_list_of_strings=True)
+
+        # Guardar en caché
+        cache.set("metadata_equipment", processed_data, self.cache_ttl)
+        return processed_data
 
     async def get_exercises_from_db(self) -> List[ExerciseDatabaseResponse]:
         """Obtiene todos los ejercicios del usuario desde la base de datos"""
