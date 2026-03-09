@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.1.0] - 2026-03-09
+
+### Añadido
+- Nueva feature de los planes de workout en la base de datos.
+
 ## [1.0.4] - 2026-03-09
 
 ### Añadido

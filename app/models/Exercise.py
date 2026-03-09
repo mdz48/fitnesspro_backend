@@ -24,3 +24,4 @@ class Exercise(Base):
     difficulty = Column(Enum("Facil", "Medio", "Dificil"), nullable=False)
     
     user = relationship("User", back_populates="exercises")
+    workout_plans = relationship("WorkoutPlan", secondary="workout_plan_exercises", back_populates="exercises")

@@ -5,6 +5,7 @@ from app.routes.user_routes import user_router
 from app.routes.recipe_routes import recipe_router
 from app.routes.list_routes import list_routes
 from app.routes.exercise_routes import exercise_router
+from app.routes.workout_plan_routes import workout_plan_router
 
 app = FastAPI()
 
@@ -12,6 +13,8 @@ app.include_router(user_router, prefix="/api", tags=["users"])
 app.include_router(recipe_router, prefix="/api", tags=["recipes"])
 app.include_router(list_routes, prefix="/api", tags=["lists"])
 app.include_router(exercise_router, prefix="/api", tags=["exercises"])
+app.include_router(workout_plan_router, prefix="/api/workout_plans", tags=["workout_plans"])
+
 
 app.add_middleware(
     CORSMiddleware,
