@@ -1,6 +1,7 @@
 from app.shared.config.database import Base
 from sqlalchemy import Column, DateTime, Integer, String, ForeignKey, Enum
 from sqlalchemy.dialects.mysql import SET
+from sqlalchemy.orm import relationship
 from datetime import datetime
 
 
@@ -15,4 +16,6 @@ class Recipe(Base):
     scheduled_days = Column(SET('Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'), nullable=True, default="")
     meal_type = Column(Enum('Desayuno', 'Comida', 'Cena'), nullable=True, default="")
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
-    image_url = Column(String(255), nullable=True)
+    image_url = Column(String(255), nullable=True, default="")
+    audio_url = Column(String(255), nullable=True, default="")
+    recipe_plans = relationship("RecipePlan", secondary="recipe_plan_recipes", back_populates="recipes")

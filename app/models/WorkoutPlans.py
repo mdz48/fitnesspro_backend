@@ -5,9 +5,6 @@ from sqlalchemy import Column, Enum, Integer, String, ForeignKey, Boolean, Table
 from sqlalchemy.orm import relationship
 from app.shared.config.database import Base
 from app.models.Enums import ExerciseTypeEnum
-from sqlalchemy.dialects.mysql import SET
-
-from app.models.Enums import BodyPartEnum, EquipmentEnum, MuscleEnum
 
 workout_plan_exercises = Table(
     'workout_plan_exercises',

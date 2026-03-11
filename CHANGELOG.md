@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.2.0] - 2026-03-10
+
+### Añadido
+- Nueva feature de los planes de recetas en la base de datos.
+
 ## [1.1.0] - 2026-03-09
 
 ### Añadido

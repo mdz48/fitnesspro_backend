@@ -11,6 +11,7 @@ class RecipeBase(BaseModel):
     scheduled_days: Optional[set[str]] = None
     meal_type: Optional[str] = None
     image_url: Optional[str] = None
+    audio_url: Optional[str] = None
     
 class RecipeCreate(RecipeBase):
     pass
@@ -24,6 +25,7 @@ class RecipeUpdate(BaseModel):
     scheduled_days: Optional[set[str]] = None
     meal_type: Optional[str] = None
     image_url: Optional[str] = None
+    audio_url: Optional[str] = None
 
 class RecipeResponse(RecipeBase):
     id: int

@@ -17,7 +17,8 @@ def create_recipe(
     user_id: Optional[int] = Form(1),
     scheduled_days: Optional[str] = Form(None),
     meal_type: Optional[str] = Form(None),
-    image: Optional[UploadFile] = File(None)
+    image: Optional[UploadFile] = File(None),
+    audio: Optional[UploadFile] = File(None)
 ):
     image_url = None
     if image and image.filename:
@@ -27,6 +28,15 @@ def create_recipe(
         image_url = upload_file_to_s3(image)
         if not image_url:
             raise HTTPException(status_code=500, detail="Failed to upload image to S3")
+
+    audio_url = None
+    if audio and audio.filename:
+        if not audio.filename.lower().endswith(('.mp3', '.mp4', '.m4a')):
+            raise HTTPException(status_code=400, detail="Only mp3, mp4 or m4a files are allowed")
+        
+        audio_url = upload_file_to_s3(audio)
+        if not audio_url:
+            raise HTTPException(status_code=500, detail="Failed to upload audio to S3")
 
     days_set = None
     if scheduled_days:
@@ -40,7 +50,8 @@ def create_recipe(
         user_id=user_id,
         scheduled_days=days_set,
         meal_type=meal_type,
-        image_url=image_url
+        image_url=image_url,
+        audio_url=audio_url
     )
     return service.create_recipe(recipe_data)
 
@@ -72,7 +83,8 @@ def update_recipe(
     user_id: Optional[int] = Form(None),
     scheduled_days: Optional[str] = Form(None),
     meal_type: Optional[str] = Form(None),
-    image: Optional[UploadFile] = File(None)
+    image: Optional[UploadFile] = File(None),
+    audio: Optional[UploadFile] = File(None)
 ):
     image_url = None
     if image and image.filename:
@@ -82,6 +94,15 @@ def update_recipe(
         image_url = upload_file_to_s3(image)
         if not image_url:
             raise HTTPException(status_code=500, detail="Failed to upload image to S3")
+
+    audio_url = None
+    if audio and audio.filename:
+        if not audio.filename.lower().endswith('.mp3'):
+            raise HTTPException(status_code=400, detail="Only mp3 files are allowed")
+        
+        audio_url = upload_file_to_s3(audio)
+        if not audio_url:
+            raise HTTPException(status_code=500, detail="Failed to upload audio to S3")
 
     days_set = None
     if scheduled_days:
@@ -95,7 +116,8 @@ def update_recipe(
         user_id=user_id,
         scheduled_days=days_set,
         meal_type=meal_type,
-        image_url=image_url
+        image_url=image_url,
+        audio_url=audio_url
     )
     return service.update_recipe(recipe_id, recipe_data)
 
