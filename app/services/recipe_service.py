@@ -50,7 +50,7 @@ class RecipeService:
             raise HTTPException(status_code=404, detail="Recipe not found")
         return recipe
     
-    def get_all_recipes(self, skip: int = 0, limit: int = 10) -> list[Recipe]:
+    def get_all_recipes(self) -> list[Recipe]:
         """
         Obtiene una lista paginada de recetas
         
@@ -61,7 +61,7 @@ class RecipeService:
         Returns:
             Lista de recetas
         """
-        return self.repository.get_all(skip, limit)
+        return self.repository.get_all()
     
     def delete_recipe(self, recipe_id: int) -> None:
         """
