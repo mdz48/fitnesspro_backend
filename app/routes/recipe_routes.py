@@ -62,8 +62,10 @@ def read_recipe(recipe_id: int, service: RecipeServiceDep):
 
 
 @recipe_router.get("/recipes", response_model=list[RecipeResponse])
-def read_recipes(skip: int = 0, limit: int = 10, service: RecipeServiceDep = None):
-    return service.get_all_recipes(skip, limit)
+def read_recipes(service: RecipeServiceDep):
+    return service.get_all_recipes()
+# def read_recipes(skip: int = 0, limit: int = 10, service: RecipeServiceDep = None):
+#     return service.get_all_recipes(skip, limit)
 
 
 @recipe_router.delete("/recipes/{recipe_id}", status_code=status.HTTP_204_NO_CONTENT)
