@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.3.0] - 2026-03-11
+
+### Añadido
+- Nuevos endpoints para buscar ejercicios y recetas por nombre.
+
 ## [1.2.0] - 2026-03-10
 
 ### Añadido

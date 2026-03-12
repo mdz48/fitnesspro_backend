@@ -10,3 +10,6 @@ class RecipeRepository(BaseRepository[Recipe]):
     
     def get_by_user(self, user_id: int) -> List[Recipe]:
         return self.db.query(Recipe).filter(Recipe.user_id == user_id).all()
+    
+    def search_by_name(self, name: str) -> List[Recipe]:
+        return self.db.query(Recipe).filter(Recipe.name.ilike(f"%{name}%")).all()

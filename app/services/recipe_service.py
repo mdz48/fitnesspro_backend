@@ -114,3 +114,7 @@ class RecipeService:
             Lista de recetas del usuario
         """
         return self.repository.get_by_user(user_id)
+    
+    def search_recipes_by_name(self, name: str) -> list[Recipe]:
+        """Busca recetas cuyo nombre contenga el texto proporcionado"""
+        return self.repository.search_by_name(name)

@@ -438,3 +438,24 @@ class ExerciseService:
                 difficulty=e.difficulty
             ) for e in exercises
         ]
+    
+    async def search_exercises_by_name(self, name: str) -> List[ExerciseDatabaseResponse]:
+        """Busca ejercicios cuyo nombre contenga el texto proporcionado"""
+        exercises = self.repository.search_by_name(name)
+        return [
+            ExerciseDatabaseResponse(
+                id=e.id,
+                name=e.name,
+                description=e.description,
+                user_id=e.user_id,
+                scheduled_days=list(e.scheduled_days) if e.scheduled_days else [],
+                image_url=e.image_url or "",
+                bodyparts=list(e.bodyparts) if e.bodyparts else [],
+                equipments=list(e.equipments) if e.equipments else [],
+                targetMuscles=list(e.targetMuscles) if e.targetMuscles else [],
+                secondaryMuscles=list(e.secondaryMuscles) if e.secondaryMuscles else [],
+                exercise_type=e.exercise_type.value if e.exercise_type else "",
+                instructions=e.instructions or "",
+                difficulty=e.difficulty
+            ) for e in exercises
+        ]

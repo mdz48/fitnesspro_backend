@@ -125,3 +125,7 @@ def update_recipe(
 @recipe_router.get("/users/{user_id}/recipes", response_model=list[RecipeResponse])
 def read_recipes_by_user(user_id: int, service: RecipeServiceDep):
     return service.get_recipes_by_user(user_id)
+
+@recipe_router.get("/recipes/search/{name}", response_model=list[RecipeResponse])
+def search_recipes_by_name(name: str, service: RecipeServiceDep):
+    return service.search_recipes_by_name(name)

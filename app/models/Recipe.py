@@ -12,7 +12,7 @@ class Recipe(Base):
     name = Column(String(100), nullable=False)
     description = Column(String(255), nullable=False)
     ingredients = Column(String(500), nullable=False)
-    instructions = Column(String(1000), nullable=False)
+    instructions = Column(String(1000), nullable=True)
     scheduled_days = Column(SET('Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'), nullable=True, default="")
     meal_type = Column(Enum('Desayuno', 'Comida', 'Cena'), nullable=True, default="")
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)

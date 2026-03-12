@@ -34,3 +34,6 @@ class ExerciseRepository(BaseRepository[Exercise]):
     
     def get_by_target(self, target: str) -> List[Exercise]:
         return self.db.query(Exercise).filter(Exercise.targetMuscles.contains(target)).all()
+    
+    def search_by_name(self, name: str) -> List[Exercise]:
+        return self.db.query(Exercise).filter(Exercise.name.ilike(f"%{name}%")).all()

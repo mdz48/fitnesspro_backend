@@ -164,6 +164,10 @@ async def get_exercises_from_db_by_difficulty(difficulty: str, service: Exercise
 async def get_exercises_from_db_by_type(exercise_type: str, service: ExerciseServiceDep):
     return await service.get_exercises_from_db_by_type(exercise_type)
 
+@exercise_router.get("/exercises/local/search/{name}")
+async def search_exercises_by_name(name: str, service: ExerciseServiceDep):
+    return await service.search_exercises_by_name(name)
+
 @exercise_router.get("/exercises/bodypart/{bodypart}", response_model=ExerciseListResponse)
 async def get_exercises_by_bodypart(bodypart: str, service: ExerciseServiceDep):
     return await service.get_exercises_by_bodypart(bodypart)
