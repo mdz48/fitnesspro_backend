@@ -1,7 +1,10 @@
 """
 Servicio para la lógica de negocio de usuarios
 """
+import os
 from fastapi import HTTPException
+from google.auth.transport.requests import Request
+from google.oauth2 import id_token
 from app.models.User import User
 from app.schemas.user_schema import UserCreate, UserUpdate, LoginResponse
 from app.repositories.user_repository import UserRepository
@@ -106,6 +109,57 @@ class UserService:
         # Crear token de acceso
         access_token = self.security.create_access_token(data={"sub": user.email})
         
+        return LoginResponse(
+            **user.__dict__,
+            access_token=access_token,
+            token_type="bearer"
+        )
+
+    def login_google_user(self, google_id_token: str) -> LoginResponse:
+        """
+        Autentica un usuario usando Google ID Token.
+
+        Si el usuario no existe, solicita completar registro en lugar de crear
+        un usuario con datos estáticos.
+        """
+        google_client_id = os.getenv("GOOGLE_CLIENT_ID")
+        if not google_client_id:
+            raise HTTPException(status_code=500, detail="Google auth is not configured")
+
+        try:
+            token_info = id_token.verify_oauth2_token(
+                google_id_token,
+                Request(),
+                google_client_id
+            )
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid Google token")
+
+        email = token_info.get("email")
+        if not email:
+            raise HTTPException(status_code=400, detail="Google token without email")
+
+        if token_info.get("email_verified") is False:
+            raise HTTPException(status_code=400, detail="Google email is not verified")
+
+        user = self.repository.get_by_email(email)
+
+        if user is None:
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "code": "GOOGLE_USER_NOT_REGISTERED",
+                    "message": "Google account is valid but user profile is incomplete",
+                    "prefill": {
+                        "email": email,
+                        "name": token_info.get("given_name") or token_info.get("name") or "",
+                        "lastname": token_info.get("family_name") or ""
+                    }
+                }
+            )
+
+        access_token = self.security.create_access_token(data={"sub": user.email})
+
         return LoginResponse(
             **user.__dict__,
             access_token=access_token,

@@ -25,6 +25,11 @@ def login_user(email: str = Form(...), password: str = Form(...), service: UserS
     return service.login_user(email, password)
 
 
+@user_router.post("/login/google", response_model=LoginResponse)
+def login_google_user(id_token: str = Form(...), service: UserServiceDep = None):
+    return service.login_google_user(id_token)
+
+
 @user_router.get("/users", response_model=list[UserResponse])
 def read_users(service: UserServiceDep = None):
     return service.get_all_users()
