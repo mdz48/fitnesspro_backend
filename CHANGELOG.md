@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.3.2] - 2026-03-23
+### Cambios
+- Se corrigió el error con google auth, ahora se puede iniciar sesión con google sin registrarse por completo.
+
 ## [1.3.1] - 2026-03-22
 ### Cambios
 - Se corrigieron cosas opciones
