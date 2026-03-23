@@ -3,7 +3,7 @@ Servicio para la lógica de negocio de usuarios
 """
 from fastapi import HTTPException
 from app.models.User import User
-from app.schemas.user_schema import UserCreate, LoginResponse
+from app.schemas.user_schema import UserCreate, UserUpdate, LoginResponse
 from app.repositories.user_repository import UserRepository
 from app.core.security_service import SecurityService
 
@@ -21,6 +21,11 @@ class UserService:
         """
         self.repository = repository
         self.security = security
+
+    def _normalize_membership(self, membership: str | None) -> str | None:
+        if membership == "free":
+            return "gratuito"
+        return membership
     
     def create_user(self, user_data: UserCreate) -> User:
         """
@@ -43,6 +48,8 @@ class UserService:
         hashed_password = self.security.get_password_hash(user_data.password)
         
         # Crear nuevo usuario
+        normalized_membership = self._normalize_membership(user_data.membership)
+
         new_user = User(
             email=user_data.email,
             name=user_data.name,
@@ -51,7 +58,8 @@ class UserService:
             birthdate=user_data.birthdate,
             weight=user_data.weight,
             height=user_data.height,
-            gender=user_data.gender
+            gender=user_data.gender,
+            membership=normalized_membership
         )
         
         return self.repository.create(new_user)
@@ -104,15 +112,50 @@ class UserService:
             token_type="bearer"
         )
     
-    def get_all_users(self, skip: int = 0, limit: int = 10) -> list[User]:
+    def get_all_users(self) -> list[User]:
         """
-        Obtiene una lista paginada de usuarios
-        
-        Args:
-            skip: Número de registros a saltar
-            limit: Número máximo de registros a retornar
+        Obtiene la lista de usuarios
             
         Returns:
             Lista de usuarios
         """
-        return self.repository.get_all(skip, limit)
+        return self.repository.get_all()
+
+    def update_user(self, user_id: int, user_data: UserUpdate) -> User:
+        """
+        Actualiza un usuario existente
+
+        Args:
+            user_id: ID del usuario a actualizar
+            user_data: Datos del usuario a actualizar
+
+        Returns:
+            Usuario actualizado
+
+        Raises:
+            HTTPException: Si el usuario no existe o el email ya está en uso
+        """
+        user = self.repository.get_by_id(user_id)
+        if user is None:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        data_to_update = user_data.model_dump(exclude_unset=True)
+
+        new_email = data_to_update.get("email")
+        if new_email and new_email != user.email:
+            existing_user = self.repository.get_by_email(new_email)
+            if existing_user and existing_user.id != user_id:
+                raise HTTPException(status_code=400, detail="Email already registered")
+
+        new_password = data_to_update.pop("password", None)
+        if new_password is not None:
+            user.password = self.security.get_password_hash(new_password)
+
+        if "membership" in data_to_update:
+            data_to_update["membership"] = self._normalize_membership(data_to_update.get("membership"))
+
+        for key, value in data_to_update.items():
+            if value is not None:
+                setattr(user, key, value)
+
+        return self.repository.update(user)

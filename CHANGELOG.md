@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.1] - 2026-03-22
+### Cambios
+- Se corrigieron cosas opciones
+- La tabla de user ahora tiene un nuevo campo llamado membership que puede ser gratuito, premium o admin. por defecto es gratuito.
+- Se corrigió el error de que no se podían actualizar los campos de los usuarios.
+
 ## [1.3.0] - 2026-03-11
 
 ### Añadido

@@ -23,6 +23,7 @@ class User(Base):
     weight = Column(Float, nullable=False)
     height = Column(Float, nullable=False)
     gender = Column(Enum("hombre", "mujer", "otro"), nullable=False)
+    membership = Column(Enum("gratuito", "premium", "admin"), default="gratuito", nullable=False)
 
     exercises = relationship("Exercise", back_populates="user")
     workout_plans = relationship("WorkoutPlan", back_populates="user")

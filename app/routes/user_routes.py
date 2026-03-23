@@ -1,5 +1,5 @@
 from fastapi import APIRouter, status, Form
-from app.schemas.user_schema import UserCreate, LoginResponse, UserResponse
+from app.schemas.user_schema import UserCreate, UserUpdate, LoginResponse, UserResponse
 from app.core.dependencies import UserServiceDep
 
 user_router = APIRouter()
@@ -15,11 +15,16 @@ def read_user(user_id: int, service: UserServiceDep):
     return service.get_user_by_id(user_id)
 
 
+@user_router.put("/users/{user_id}", response_model=UserResponse)
+def update_user(user_id: int, user: UserUpdate, service: UserServiceDep):
+    return service.update_user(user_id, user)
+
+
 @user_router.post("/login", response_model=LoginResponse)
 def login_user(email: str = Form(...), password: str = Form(...), service: UserServiceDep = None):
     return service.login_user(email, password)
 
 
 @user_router.get("/users", response_model=list[UserResponse])
-def read_users(skip: int = 0, limit: int = 10, service: UserServiceDep = None):
-    return service.get_all_users(skip, limit)
+def read_users(service: UserServiceDep = None):
+    return service.get_all_users()

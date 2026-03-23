@@ -13,7 +13,7 @@ def create_recipe(
     name: str = Form(...),
     description: str = Form(...),
     ingredients: str = Form(...),
-    instructions: str = Form(...),
+    instructions: Optional[str] = Form(None),
     user_id: Optional[int] = Form(1),
     scheduled_days: Optional[str] = Form(None),
     meal_type: Optional[str] = Form(None),
@@ -64,8 +64,6 @@ def read_recipe(recipe_id: int, service: RecipeServiceDep):
 @recipe_router.get("/recipes", response_model=list[RecipeResponse])
 def read_recipes(service: RecipeServiceDep):
     return service.get_all_recipes()
-# def read_recipes(skip: int = 0, limit: int = 10, service: RecipeServiceDep = None):
-#     return service.get_all_recipes(skip, limit)
 
 
 @recipe_router.delete("/recipes/{recipe_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -82,7 +80,6 @@ def update_recipe(
     description: Optional[str] = Form(None),
     ingredients: Optional[str] = Form(None),
     instructions: Optional[str] = Form(None),
-    user_id: Optional[int] = Form(None),
     scheduled_days: Optional[str] = Form(None),
     meal_type: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None),
@@ -115,7 +112,6 @@ def update_recipe(
         description=description,
         ingredients=ingredients,
         instructions=instructions,
-        user_id=user_id,
         scheduled_days=days_set,
         meal_type=meal_type,
         image_url=image_url,
