@@ -1,3 +1,4 @@
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.shared.config.database import engine, Base
@@ -7,6 +8,12 @@ from app.routes.list_routes import list_routes
 from app.routes.exercise_routes import exercise_router
 from app.routes.workout_plan_routes import workout_plan_router
 from app.routes.recipe_plan_routes import recipe_plan_router
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+)
 
 app = FastAPI()
 

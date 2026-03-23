@@ -129,7 +129,14 @@ class UserService:
         debug_google_auth = os.getenv("GOOGLE_AUTH_DEBUG", "false").lower() == "true"
 
         if not google_client_id:
-            raise HTTPException(status_code=500, detail="Google auth is not configured")
+            logger.error("Google auth misconfigured: GOOGLE_CLIENT_ID is missing")
+            raise HTTPException(
+                status_code=500,
+                detail={
+                    "code": "GOOGLE_CONFIG_MISSING",
+                    "message": "Google auth is not configured"
+                }
+            )
 
         try:
             token_info = id_token.verify_oauth2_token(
@@ -158,14 +165,29 @@ class UserService:
 
         email = token_info.get("email")
         if not email:
-            raise HTTPException(status_code=400, detail="Google token without email")
+            logger.warning("Google token without email claim")
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "GOOGLE_TOKEN_WITHOUT_EMAIL",
+                    "message": "Google token without email"
+                }
+            )
 
         if token_info.get("email_verified") is False:
-            raise HTTPException(status_code=400, detail="Google email is not verified")
+            logger.warning("Google token email not verified", extra={"email": email})
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "GOOGLE_EMAIL_NOT_VERIFIED",
+                    "message": "Google email is not verified"
+                }
+            )
 
         user = self.repository.get_by_email(email)
 
         if user is None:
+            logger.info("Google user not registered", extra={"email": email})
             raise HTTPException(
                 status_code=404,
                 detail={
