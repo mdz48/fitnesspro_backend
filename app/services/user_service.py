@@ -2,6 +2,7 @@
 Servicio para la lógica de negocio de usuarios
 """
 import os
+import logging
 from fastapi import HTTPException
 from google.auth.transport.requests import Request
 from google.oauth2 import id_token
@@ -9,6 +10,8 @@ from app.models.User import User
 from app.schemas.user_schema import UserCreate, UserUpdate, LoginResponse
 from app.repositories.user_repository import UserRepository
 from app.core.security_service import SecurityService
+
+logger = logging.getLogger(__name__)
 
 
 class UserService:
@@ -123,6 +126,8 @@ class UserService:
         un usuario con datos estáticos.
         """
         google_client_id = os.getenv("GOOGLE_CLIENT_ID")
+        debug_google_auth = os.getenv("GOOGLE_AUTH_DEBUG", "false").lower() == "true"
+
         if not google_client_id:
             raise HTTPException(status_code=500, detail="Google auth is not configured")
 
@@ -132,8 +137,24 @@ class UserService:
                 Request(),
                 google_client_id
             )
-        except Exception:
-            raise HTTPException(status_code=400, detail="Invalid Google token")
+        except ValueError as exc:
+            logger.exception("Google token validation failed")
+            detail = {
+                "code": "INVALID_GOOGLE_TOKEN",
+                "message": "Invalid Google token"
+            }
+            if debug_google_auth:
+                detail["debug"] = str(exc)
+            raise HTTPException(status_code=400, detail=detail)
+        except Exception as exc:
+            logger.exception("Unexpected Google auth error")
+            detail = {
+                "code": "GOOGLE_AUTH_ERROR",
+                "message": "Google authentication failed"
+            }
+            if debug_google_auth:
+                detail["debug"] = str(exc)
+            raise HTTPException(status_code=500, detail=detail)
 
         email = token_info.get("email")
         if not email:
