@@ -1,9 +1,12 @@
 """
 Servicio para gestionar ejercicios de la API ExerciseDB y de la base de datos
 """
-from typing import List, Optional, Dict, Any
+import unicodedata
+from typing import List, Optional, Dict, Any, Type
+from enum import Enum
 from app.interfaces.api_client_interface import IAPIClient
 from app.models.Exercise import Exercise
+from app.models.Enums import BodyPartEnum, EquipmentEnum, MuscleEnum
 from app.repositories.exercise_repository import ExerciseRepository
 from app.schemas.exercise_schema import ExerciseDatabaseCreate, ExerciseDatabaseUpdate, ExerciseDatabaseResponse, ExerciseDetailResponse, ExerciseListResponse, ExerciseSchema
 from app.services.translation_service import translation_service
@@ -26,6 +29,35 @@ class ExerciseService:
         self.api_client = api_client
         self.repository = repository
         self.cache_ttl = 3600 # 1 hora de caché
+        self.bodypart_map = self._build_spanish_to_english_map(BodyPartEnum)
+        self.target_map = self._build_spanish_to_english_map(MuscleEnum)
+        self.equipment_map = self._build_spanish_to_english_map(EquipmentEnum)
+
+    @staticmethod
+    def _normalize_filter_value(value: str) -> str:
+        """Normaliza texto para búsquedas robustas (sin tildes y en minúsculas)."""
+        base_value = (value or "").replace("_", " ").replace("-", " ")
+        collapsed_spaces = " ".join(base_value.split())
+        normalized = unicodedata.normalize("NFKD", collapsed_spaces)
+        return "".join(ch for ch in normalized if not unicodedata.combining(ch)).strip().lower()
+
+    @staticmethod
+    def _build_spanish_to_english_map(enum_cls: Type[Enum]) -> Dict[str, str]:
+        """Crea mapa de valor en español a valor en inglés esperado por la API remota."""
+        result: Dict[str, str] = {}
+        for member in enum_cls:
+            spanish_key = ExerciseService._normalize_filter_value(str(member.value))
+            english_value = member.name.lower().replace("_", " ")
+            result[spanish_key] = english_value
+            result[ExerciseService._normalize_filter_value(english_value)] = english_value
+            result[ExerciseService._normalize_filter_value(member.name)] = english_value
+        return result
+
+    def _map_filter_to_english(self, value: str, value_map: Dict[str, str]) -> str:
+        """Mapea filtros en español a inglés; si no hay match, conserva el valor original."""
+        normalized_value = self._normalize_filter_value(value)
+        # Fallback: estandarizar separadores y espacios para la API remota.
+        return value_map.get(normalized_value, " ".join((value or "").replace("_", " ").replace("-", " ").split()))
 
     async def _process_response(self, response: Any, is_list_of_strings: bool = False) -> Any:
         """Procesa y traduce la respuesta de la API"""
@@ -102,16 +134,18 @@ class ExerciseService:
         Returns:
             Lista de ejercicios
         """
+        mapped_bodypart = self._map_filter_to_english(bodypart, self.bodypart_map)
+
         # Intentar obtener del caché
-        cached_data = cache.get("exercises_bodypart", bodypart=bodypart)
+        cached_data = cache.get("exercises_bodypart", bodypart=mapped_bodypart)
         if cached_data:
             return cached_data
 
-        response = await self.api_client.get('/exercises/filter', params={'bodyParts': bodypart})
+        response = await self.api_client.get('/exercises/filter', params={'bodyParts': mapped_bodypart})
         processed_data = await self._process_response(response)
 
         # Guardar en caché
-        cache.set("exercises_bodypart", processed_data, self.cache_ttl, bodypart=bodypart)
+        cache.set("exercises_bodypart", processed_data, self.cache_ttl, bodypart=mapped_bodypart)
         return processed_data
     
     async def get_exercises_by_target(self, target: str) -> Dict[str, Any]:
@@ -124,16 +158,18 @@ class ExerciseService:
         Returns:
             Lista de ejercicios
         """
+        mapped_target = self._map_filter_to_english(target, self.target_map)
+
         # Intentar obtener del caché
-        cached_data = cache.get("exercises_target", target=target)
+        cached_data = cache.get("exercises_target", target=mapped_target)
         if cached_data:
             return cached_data
 
-        response = await self.api_client.get('/exercises/filter', params={'targetMuscles': target})
+        response = await self.api_client.get('/exercises/filter', params={'targetMuscles': mapped_target})
         processed_data = await self._process_response(response)
 
         # Guardar en caché
-        cache.set("exercises_target", processed_data, self.cache_ttl, target=target)
+        cache.set("exercises_target", processed_data, self.cache_ttl, target=mapped_target)
         return processed_data
     
     async def get_exercises_by_equipment(self, equipment: str) -> Dict[str, Any]:
@@ -146,16 +182,18 @@ class ExerciseService:
         Returns:
             Lista de ejercicios
         """
+        mapped_equipment = self._map_filter_to_english(equipment, self.equipment_map)
+
         # Intentar obtener del caché
-        cached_data = cache.get("exercises_equipment", equipment=equipment)
+        cached_data = cache.get("exercises_equipment", equipment=mapped_equipment)
         if cached_data:
             return cached_data
 
-        response = await self.api_client.get('/exercises/filter', params={'equipments': equipment})
+        response = await self.api_client.get('/exercises/filter', params={'equipments': mapped_equipment})
         processed_data = await self._process_response(response)
 
         # Guardar en caché
-        cache.set("exercises_equipment", processed_data, self.cache_ttl, equipment=equipment)
+        cache.set("exercises_equipment", processed_data, self.cache_ttl, equipment=mapped_equipment)
         return processed_data
     
     async def get_body_parts(self) -> List[str]:

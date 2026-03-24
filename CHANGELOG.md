@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.3.3] - 2026-03-23
+### Cambios
+- Se corrigió el filtrado para la API externa y los ENUMs estaban mal
+
 ## [1.3.2] - 2026-03-23
 ### Cambios
 - Se corrigió el error con google auth, ahora se puede iniciar sesión con google sin registrarse por completo.
