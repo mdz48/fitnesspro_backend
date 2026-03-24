@@ -3,19 +3,20 @@ from datetime import date
 from typing import Literal
 
 class UserBase(BaseModel):
-    email: EmailStr | None = "1@1.com"
-    name: str | None = "Usuario"
-    lastname: str | None = "Prueba"
-    birthdate: date | None = date(2000, 1, 1)
-    weight: float | None = 70.0
-    height: float | None = 1.75
-    gender: str | None = "hombre"
+    email: EmailStr | None = None
+    name: str | None = None
+    lastname: str | None = None
+    birthdate: date | None = None
+    weight: float | None = None
+    height: float | None = None
+    gender: str | None = None
     membership: Literal["gratuito", "premium", "admin"] | None = "gratuito"
     
     model_config = ConfigDict(from_attributes=True)
 
 class UserCreate(UserBase):
-    password: str | None = "1"
+    email: EmailStr
+    password: str | None = None
 
 
 class UserUpdate(BaseModel):

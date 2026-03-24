@@ -7,6 +7,7 @@ passlib[bcrypt]
 pymysql
 python-jose[cryptography]
 cryptography
+google-auth
 httpx
 deep_translator==1.11.4
 boto3==1.42.62
