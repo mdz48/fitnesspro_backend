@@ -9,9 +9,11 @@ from app.core.security_service import SecurityService
 from app.repositories.user_repository import UserRepository
 from app.repositories.recipe_repository import RecipeRepository
 from app.repositories.exercise_repository import ExerciseRepository
+from app.repositories.progression_repository import ProgressionRepository
 from app.services.user_service import UserService
 from app.services.recipe_service import RecipeService
 from app.services.exercise_service import ExerciseService
+from app.services.progression_service import ProgressionService
 from app.services.external_api_service import ExternalAPIClient
 from app.shared.config.external_api_config import EXERCISEDB_BASE_URL
 
@@ -31,6 +33,11 @@ def get_recipe_repository(db: Session = Depends(get_db)) -> RecipeRepository:
 def get_exercise_repository(db: Session = Depends(get_db)) -> ExerciseRepository:
     """Inyecta el repositorio de ejercicios"""
     return ExerciseRepository(db)
+
+
+def get_progression_repository(db: Session = Depends(get_db)) -> ProgressionRepository:
+    """Inyecta el repositorio de progresión de peso"""
+    return ProgressionRepository(db)
 
 
 # === Dependencias de Servicios Core ===
@@ -70,8 +77,17 @@ def get_exercise_service(
     return ExerciseService(api_client, repository)
 
 
+def get_progression_service(
+    repository: ProgressionRepository = Depends(get_progression_repository),
+    user_repository: UserRepository = Depends(get_user_repository)
+) -> ProgressionService:
+    """Inyecta el servicio de progresión de peso"""
+    return ProgressionService(repository, user_repository)
+
+
 # === Type Aliases para anotaciones ===
 
 UserServiceDep = Annotated[UserService, Depends(get_user_service)]
 RecipeServiceDep = Annotated[RecipeService, Depends(get_recipe_service)]
 ExerciseServiceDep = Annotated[ExerciseService, Depends(get_exercise_service)]
+ProgressionServiceDep = Annotated[ProgressionService, Depends(get_progression_service)]

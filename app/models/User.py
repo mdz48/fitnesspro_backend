@@ -23,8 +23,10 @@ class User(Base):
     weight = Column(Float, nullable=True)
     height = Column(Float, nullable=True)
     gender = Column(Enum("hombre", "mujer", "otro"), nullable=True)
+    weight_goal = Column(Enum("bajar", "mantener", "subir"), nullable=True)
     membership = Column(Enum("gratuito", "premium", "admin"), default="gratuito", nullable=False)
 
     exercises = relationship("Exercise", back_populates="user")
     workout_plans = relationship("WorkoutPlan", back_populates="user")
     recipe_plans = relationship("RecipePlan", back_populates="user")
+    weight_progress = relationship("WeightProgress", back_populates="user", cascade="all, delete-orphan")

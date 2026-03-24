@@ -1,5 +1,10 @@
 from enum import Enum
 
+class WeightGoalEnum(Enum):
+    BAJAR = "bajar"
+    MANTENER = "mantener"
+    SUBIR = "subir"
+
 class BodyPartEnum(Enum):
     BACK = "ESPALDA"
     CALVES = "PANTORRILLAS"

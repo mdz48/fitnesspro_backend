@@ -10,6 +10,7 @@ class UserBase(BaseModel):
     weight: float | None = None
     height: float | None = None
     gender: str | None = None
+    weight_goal: Literal["bajar", "mantener", "subir"] | None = "mantener"
     membership: Literal["gratuito", "premium", "admin"] | None = "gratuito"
     
     model_config = ConfigDict(from_attributes=True)
@@ -28,6 +29,7 @@ class UserUpdate(BaseModel):
     weight: float | None = None
     height: float | None = None
     gender: str | None = None
+    weight_goal: Literal["bajar", "mantener", "subir"] | None = None
     membership: Literal["gratuito", "free", "premium", "admin"] | None = None
 
     model_config = ConfigDict(from_attributes=True)
