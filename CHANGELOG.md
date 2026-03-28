@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.3.5] - 2026-03-28
+### Añadido
+- Se agrego un nuevo endpoint para obtener los ejercicios y recetas del usuario de ese dia
+
 ## [1.3.4] - 2026-03-27
 ### Añadido
 - Se puso un endpoint para obtener los ejercicios de la comunidad

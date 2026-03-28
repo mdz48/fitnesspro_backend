@@ -294,6 +294,27 @@ class ExerciseService:
                 difficulty=e.difficulty
             ) for e in exercises
         ]
+
+    async def get_exercises_by_user_and_day(self, user_id: int, day: str) -> List[ExerciseDatabaseResponse]:
+        """Obtiene los ejercicios de un usuario para un día específico."""
+        exercises = self.repository.get_by_user_and_day(user_id, day)
+        return [
+            ExerciseDatabaseResponse(
+                id=e.id,
+                name=e.name,
+                description=e.description,
+                user_id=e.user_id,
+                scheduled_days=list(e.scheduled_days) if e.scheduled_days else [],
+                image_url=e.image_url or "",
+                bodyparts=list(e.bodyparts) if e.bodyparts else [],
+                equipments=list(e.equipments) if e.equipments else [],
+                targetMuscles=list(e.targetMuscles) if e.targetMuscles else [],
+                secondaryMuscles=list(e.secondaryMuscles) if e.secondaryMuscles else [],
+                exercise_type=e.exercise_type.value if e.exercise_type else "",
+                instructions=e.instructions or "",
+                difficulty=e.difficulty
+            ) for e in exercises
+        ]
         
     
     async def get_community_exercises(self, user_id: int) -> List[ExerciseDatabaseResponse]:
