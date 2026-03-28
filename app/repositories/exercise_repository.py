@@ -37,3 +37,6 @@ class ExerciseRepository(BaseRepository[Exercise]):
     
     def search_by_name(self, name: str) -> List[Exercise]:
         return self.db.query(Exercise).filter(Exercise.name.ilike(f"%{name}%")).all()
+    
+    def get_except_user(self, user_id: int) -> List[Exercise]:
+        return self.db.query(Exercise).filter(Exercise.user_id != user_id).all()

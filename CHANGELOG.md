@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.3.4] - 2026-03-27
+### Añadido
+- Se puso un endpoint para obtener los ejercicios de la comunidad
+
 ## [1.3.3] - 2026-03-23
 ### Cambios
 - Se corrigió el filtrado para la API externa y los ENUMs estaban mal

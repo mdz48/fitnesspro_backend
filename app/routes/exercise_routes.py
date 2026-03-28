@@ -24,6 +24,10 @@ async def get_exercises_from_api(
 async def get_exercises_from_db(service: ExerciseServiceDep):
     return await service.get_exercises_from_db()
 
+@exercise_router.get("/exercises/community/{user_id}")
+async def get_community_exercises(user_id: int, service: ExerciseServiceDep):
+    return await service.get_community_exercises(user_id)
+
 @exercise_router.post("/exercises/local")
 async def create_exercise( 
     service: ExerciseServiceDep,
