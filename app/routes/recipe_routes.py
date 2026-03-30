@@ -136,10 +136,12 @@ def read_community_recipes(user_id: int, service: RecipeServiceDep):
 @recipe_router.get("/recipes/remote/search", response_model=ExternalRecipeListResponse)
 async def search_remote_recipes(
     service: ExternalRecipeServiceDep,
-    name: str = Query(..., min_length=2, description="Nombre o texto para buscar recetas externas")
-):
-    recipes = await service.search_recipes(name)
-    return ExternalRecipeListResponse(recipes=recipes)
+    name: str = Query(..., min_length=1, description="Nombre o texto para buscar recetas externas"),
+    page: int = Query(1, ge=1, description="Número de página"),
+    page_size: int = Query(5, ge=1, le=20, description="Cantidad de resultados por página")
+) -> ExternalRecipeListResponse:
+    """Busca recetas externas con paginación para reducir latencia de traducción."""
+    return await service.search_recipes(name=name, page=page, page_size=page_size)
 
 
 @recipe_router.get("/recipes/remote/random", response_model=ExternalRecipeResponse)
@@ -151,9 +153,17 @@ async def read_random_remote_recipe(service: ExternalRecipeServiceDep):
 async def read_random_remote_recipes(
     service: ExternalRecipeServiceDep,
     count: int = Query(5, ge=1, le=20, description="Cantidad de recetas aleatorias a retornar")
-):
+) -> ExternalRecipeListResponse:
+    """Obtiene recetas aleatorias y devuelve metadatos de listado en una sola página."""
     recipes = await service.get_random_recipes(count)
-    return ExternalRecipeListResponse(recipes=recipes)
+    return ExternalRecipeListResponse(
+        recipes=recipes,
+        page=1,
+        page_size=len(recipes),
+        total=len(recipes),
+        total_pages=1,
+        has_next=False
+    )
 
 
 @recipe_router.get("/recipes/remote/{recipe_id}", response_model=ExternalRecipeResponse)

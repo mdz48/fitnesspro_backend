@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from fastapi import HTTPException
 
 from app.interfaces.api_client_interface import IAPIClient
-from app.schemas.external_recipe_schema import ExternalRecipeResponse
+from app.schemas.external_recipe_schema import ExternalRecipeListResponse, ExternalRecipeResponse
 from app.services.cache_service import cache
 from app.services.translation_service import translation_service
 from app.shared.config.external_api_config import CACHE_TTL
@@ -133,32 +133,86 @@ class ExternalRecipeService:
 
         return recipe
 
-    async def search_recipes(self, name: str) -> List[ExternalRecipeResponse]:
-        """Busca recetas por nombre en el proveedor externo."""
+    async def search_recipes(self, name: str, page: int = 1, page_size: int = 5) -> ExternalRecipeListResponse:
+        """Busca recetas por nombre y retorna una página traducida de resultados."""
         normalized_name = (name or "").strip().lower()
-        cached_data = cache.get("external_recipe_search", name=normalized_name)
-        if cached_data is not None:
-            return [ExternalRecipeResponse(**item) for item in cached_data]
+        safe_page = max(1, page)
+        safe_page_size = max(1, min(page_size, 20))
 
-        response = await self.api_client.get("/search.php", params={"s": normalized_name})
-        meals = response.get("meals") if isinstance(response, dict) else None
-        if not meals:
-            cache.set("external_recipe_search", [], self.cache_ttl, name=normalized_name)
-            return []
+        cached_raw_data = cache.get("external_recipe_search_raw", name=normalized_name)
+        if cached_raw_data is None:
+            response = await self.api_client.get("/search.php", params={"s": normalized_name})
+            meals = response.get("meals") if isinstance(response, dict) else None
 
-        translated_recipes: List[ExternalRecipeResponse] = []
-        for meal in meals:
-            normalized_recipe = self._normalize_recipe(meal)
-            translated_recipe = await self._translate_recipe(normalized_recipe)
-            translated_recipes.append(translated_recipe)
+            normalized_recipes = [
+                self._normalize_recipe(meal).model_dump()
+                for meal in meals
+            ] if meals else []
+
+            cache.set(
+                "external_recipe_search_raw",
+                normalized_recipes,
+                self.cache_ttl,
+                name=normalized_name
+            )
+            cached_raw_data = normalized_recipes
+
+        total = len(cached_raw_data)
+        if total == 0:
+            return ExternalRecipeListResponse(
+                recipes=[],
+                page=safe_page,
+                page_size=safe_page_size,
+                total=0,
+                total_pages=0,
+                has_next=False
+            )
+
+        total_pages = (total + safe_page_size - 1) // safe_page_size
+        safe_page = min(safe_page, total_pages)
+        has_next = safe_page < total_pages
+
+        translated_page_data = cache.get(
+            "external_recipe_search_page",
+            name=normalized_name,
+            page=safe_page,
+            page_size=safe_page_size
+        )
+        if translated_page_data is not None:
+            return ExternalRecipeListResponse(
+                recipes=[ExternalRecipeResponse(**item) for item in translated_page_data],
+                page=safe_page,
+                page_size=safe_page_size,
+                total=total,
+                total_pages=total_pages,
+                has_next=has_next
+            )
+
+        start = (safe_page - 1) * safe_page_size
+        end = start + safe_page_size
+        raw_page_items = cached_raw_data[start:end]
+
+        translated_recipes = await asyncio.gather(
+            *(self._translate_recipe(ExternalRecipeResponse(**item)) for item in raw_page_items)
+        )
 
         cache.set(
-            "external_recipe_search",
+            "external_recipe_search_page",
             [recipe.model_dump() for recipe in translated_recipes],
             self.cache_ttl,
-            name=normalized_name
+            name=normalized_name,
+            page=safe_page,
+            page_size=safe_page_size
         )
-        return translated_recipes
+
+        return ExternalRecipeListResponse(
+            recipes=translated_recipes,
+            page=safe_page,
+            page_size=safe_page_size,
+            total=total,
+            total_pages=total_pages,
+            has_next=has_next
+        )
 
     async def get_recipe_by_id(self, recipe_id: str) -> ExternalRecipeResponse:
         """Obtiene una receta externa por ID."""

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.7] - 2026-03-30
+
+### Cambios
+
+- Se implementó paginación en `GET /api/recipes/remote/search` con parámetros `page` y `page_size` para reducir el tiempo de respuesta al traducir solo una parte de los resultados por solicitud.
+- Se ajustó el contrato de `ExternalRecipeListResponse` para incluir metadatos de paginación: `page`, `page_size`, `total`, `total_pages` y `has_next`.
+- Se agregó caché para resultados normalizados de búsqueda y caché por página traducida para acelerar consultas repetidas.
+
 ## [1.3.6] - 2026-03-29
 
 ### Añadido

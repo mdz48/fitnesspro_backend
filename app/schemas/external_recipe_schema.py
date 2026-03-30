@@ -27,3 +27,8 @@ class ExternalRecipeListResponse(BaseModel):
         default_factory=list,
         description="Listado de recetas encontradas"
     )
+    page: int = Field(1, ge=1, description="Página actual")
+    page_size: int = Field(5, ge=1, le=20, description="Tamaño de página")
+    total: int = Field(0, ge=0, description="Total de resultados encontrados")
+    total_pages: int = Field(0, ge=0, description="Total de páginas disponibles")
+    has_next: bool = Field(False, description="Indica si existen más páginas")
