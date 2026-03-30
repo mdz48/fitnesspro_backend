@@ -122,3 +122,7 @@ class RecipeService:
     def search_recipes_by_name(self, name: str) -> list[Recipe]:
         """Busca recetas cuyo nombre contenga el texto proporcionado"""
         return self.repository.search_by_name(name)
+    
+    def get_community_recipes(self, user_id: int) -> list[Recipe]:
+        """Obtiene recetas de la comunidad (excluyendo las del usuario)"""
+        return self.repository.get_except_user(user_id)

@@ -129,6 +129,9 @@ def read_recipes_by_user(user_id: int, service: RecipeServiceDep):
 def search_recipes_by_name(name: str, service: RecipeServiceDep):
     return service.search_recipes_by_name(name)
 
+@recipe_router.get("/recipes/community/{user_id}", response_model=list[RecipeResponse])
+def read_community_recipes(user_id: int, service: RecipeServiceDep):
+    return service.get_community_recipes(user_id)
 
 @recipe_router.get("/recipes/remote/search", response_model=ExternalRecipeListResponse)
 async def search_remote_recipes(

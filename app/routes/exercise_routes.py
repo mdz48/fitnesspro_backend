@@ -144,10 +144,6 @@ async def update_exercise(
 async def delete_exercise(exercise_id: int, service: ExerciseServiceDep):
     return await service.delete_exercise(exercise_id)
 
-@exercise_router.get("/exercises/local")
-async def get_exercises_from_db(service: ExerciseServiceDep):
-    return await service.get_exercises_from_db()
-
 @exercise_router.get("/exercises/local/bodypart/{bodypart}")
 async def get_exercises_from_db_by_bodypart(bodypart: str, service: ExerciseServiceDep):
     return await service.get_exercises_from_db_by_bodypart(bodypart)
