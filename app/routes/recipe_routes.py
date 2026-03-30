@@ -1,6 +1,7 @@
 from app.schemas.recipe_schema import RecipeCreate, RecipeResponse, RecipeUpdate
-from app.core.dependencies import RecipeServiceDep
-from fastapi import APIRouter, status, File, UploadFile, Form, HTTPException
+from app.schemas.external_recipe_schema import ExternalRecipeListResponse, ExternalRecipeResponse
+from app.core.dependencies import RecipeServiceDep, ExternalRecipeServiceDep
+from fastapi import APIRouter, status, File, UploadFile, Form, HTTPException, Query
 from app.shared.config.s3_files import upload_file_to_s3
 from typing import Optional
 
@@ -120,10 +121,41 @@ def update_recipe(
     return service.update_recipe(recipe_id, recipe_data)
 
 
-@recipe_router.get("/users/{user_id}/recipes", response_model=list[RecipeResponse])
+@recipe_router.get("/recipes/user/{user_id}", response_model=list[RecipeResponse])
 def read_recipes_by_user(user_id: int, service: RecipeServiceDep):
     return service.get_recipes_by_user(user_id)
 
 @recipe_router.get("/recipes/search/{name}", response_model=list[RecipeResponse])
 def search_recipes_by_name(name: str, service: RecipeServiceDep):
     return service.search_recipes_by_name(name)
+
+@recipe_router.get("/recipes/community/{user_id}", response_model=list[RecipeResponse])
+def read_community_recipes(user_id: int, service: RecipeServiceDep):
+    return service.get_community_recipes(user_id)
+
+@recipe_router.get("/recipes/remote/search", response_model=ExternalRecipeListResponse)
+async def search_remote_recipes(
+    service: ExternalRecipeServiceDep,
+    name: str = Query(..., min_length=2, description="Nombre o texto para buscar recetas externas")
+):
+    recipes = await service.search_recipes(name)
+    return ExternalRecipeListResponse(recipes=recipes)
+
+
+@recipe_router.get("/recipes/remote/random", response_model=ExternalRecipeResponse)
+async def read_random_remote_recipe(service: ExternalRecipeServiceDep):
+    return await service.get_random_recipe()
+
+
+@recipe_router.get("/recipes/remote/random/list", response_model=ExternalRecipeListResponse)
+async def read_random_remote_recipes(
+    service: ExternalRecipeServiceDep,
+    count: int = Query(5, ge=1, le=20, description="Cantidad de recetas aleatorias a retornar")
+):
+    recipes = await service.get_random_recipes(count)
+    return ExternalRecipeListResponse(recipes=recipes)
+
+
+@recipe_router.get("/recipes/remote/{recipe_id}", response_model=ExternalRecipeResponse)
+async def read_remote_recipe(recipe_id: str, service: ExternalRecipeServiceDep):
+    return await service.get_recipe_by_id(recipe_id)
