@@ -13,7 +13,8 @@ from app.services.user_service import UserService
 from app.services.recipe_service import RecipeService
 from app.services.exercise_service import ExerciseService
 from app.services.external_api_service import ExternalAPIClient
-from app.shared.config.external_api_config import EXERCISEDB_BASE_URL
+from app.services.external_recipe_service import ExternalRecipeService
+from app.shared.config.external_api_config import EXERCISEDB_BASE_URL, MEALDB_BASE_URL
 
 
 # === Dependencias de Repositorios ===
@@ -45,6 +46,11 @@ def get_api_client() -> ExternalAPIClient:
     return ExternalAPIClient(EXERCISEDB_BASE_URL)
 
 
+def get_recipe_api_client() -> ExternalAPIClient:
+    """Inyecta el cliente de API externa para recetas."""
+    return ExternalAPIClient(MEALDB_BASE_URL)
+
+
 # === Dependencias de Servicios de Negocio ===
 
 def get_user_service(
@@ -70,8 +76,16 @@ def get_exercise_service(
     return ExerciseService(api_client, repository)
 
 
+def get_external_recipe_service(
+    api_client: ExternalAPIClient = Depends(get_recipe_api_client),
+) -> ExternalRecipeService:
+    """Inyecta el servicio de recetas externas."""
+    return ExternalRecipeService(api_client)
+
+
 # === Type Aliases para anotaciones ===
 
 UserServiceDep = Annotated[UserService, Depends(get_user_service)]
 RecipeServiceDep = Annotated[RecipeService, Depends(get_recipe_service)]
 ExerciseServiceDep = Annotated[ExerciseService, Depends(get_exercise_service)]
+ExternalRecipeServiceDep = Annotated[ExternalRecipeService, Depends(get_external_recipe_service)]
