@@ -24,6 +24,10 @@ async def get_exercises_from_api(
 async def get_exercises_from_db(service: ExerciseServiceDep):
     return await service.get_exercises_from_db()
 
+@exercise_router.get("/exercises/community/{user_id}")
+async def get_community_exercises(user_id: int, service: ExerciseServiceDep):
+    return await service.get_community_exercises(user_id)
+
 @exercise_router.post("/exercises/local")
 async def create_exercise( 
     service: ExerciseServiceDep,
@@ -139,10 +143,6 @@ async def update_exercise(
 @exercise_router.delete("/exercises/local/{exercise_id}")
 async def delete_exercise(exercise_id: int, service: ExerciseServiceDep):
     return await service.delete_exercise(exercise_id)
-
-@exercise_router.get("/exercises/local")
-async def get_exercises_from_db(service: ExerciseServiceDep):
-    return await service.get_exercises_from_db()
 
 @exercise_router.get("/exercises/local/bodypart/{bodypart}")
 async def get_exercises_from_db_by_bodypart(bodypart: str, service: ExerciseServiceDep):

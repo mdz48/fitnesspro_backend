@@ -13,6 +13,12 @@ class ExerciseRepository(BaseRepository[Exercise]):
     
     def get_by_user(self, user_id: int) -> List[Exercise]:
         return self.db.query(Exercise).filter(Exercise.user_id == user_id).all()
+
+    def get_by_user_and_day(self, user_id: int, day: str) -> List[Exercise]:
+        return self.db.query(Exercise).filter(
+            Exercise.user_id == user_id,
+            Exercise.scheduled_days.contains(day)
+        ).all()
     
     def get_by_bodypart(self, bodypart: str) -> List[Exercise]:
         return self.db.query(Exercise).filter(Exercise.bodyparts.contains(bodypart)).all()
@@ -37,3 +43,6 @@ class ExerciseRepository(BaseRepository[Exercise]):
     
     def search_by_name(self, name: str) -> List[Exercise]:
         return self.db.query(Exercise).filter(Exercise.name.ilike(f"%{name}%")).all()
+    
+    def get_except_user(self, user_id: int) -> List[Exercise]:
+        return self.db.query(Exercise).filter(Exercise.user_id != user_id).all()

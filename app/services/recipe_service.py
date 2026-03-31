@@ -114,7 +114,15 @@ class RecipeService:
             Lista de recetas del usuario
         """
         return self.repository.get_by_user(user_id)
+
+    def get_recipes_by_user_and_day(self, user_id: int, day: str) -> list[Recipe]:
+        """Obtiene recetas de un usuario para un día específico."""
+        return self.repository.get_by_user_and_day(user_id, day)
     
     def search_recipes_by_name(self, name: str) -> list[Recipe]:
         """Busca recetas cuyo nombre contenga el texto proporcionado"""
         return self.repository.search_by_name(name)
+    
+    def get_community_recipes(self, user_id: int) -> list[Recipe]:
+        """Obtiene recetas de la comunidad (excluyendo las del usuario)"""
+        return self.repository.get_except_user(user_id)
