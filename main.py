@@ -2,12 +2,14 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.shared.config.database import engine, Base
+from app.models.UserProgression import WeightProgress
 from app.routes.user_routes import user_router
 from app.routes.recipe_routes import recipe_router
 from app.routes.list_routes import list_routes
 from app.routes.exercise_routes import exercise_router
 from app.routes.workout_plan_routes import workout_plan_router
 from app.routes.recipe_plan_routes import recipe_plan_router
+from app.routes.progression_routes import progression_router
 
 
 logging.basicConfig(
@@ -23,6 +25,7 @@ app.include_router(list_routes, prefix="/api", tags=["lists"])
 app.include_router(exercise_router, prefix="/api", tags=["exercises"])
 app.include_router(workout_plan_router, prefix="/api/workout_plans", tags=["workout_plans"])
 app.include_router(recipe_plan_router, prefix="/api/recipe_plans", tags=["recipe_plans"])
+app.include_router(progression_router, prefix="/api", tags=["progression"])
 
 
 app.add_middleware(
