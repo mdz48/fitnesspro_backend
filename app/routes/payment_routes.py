@@ -90,41 +90,48 @@ def get_payment_status(
 
 @payment_router.post("/webhooks/payments", status_code=status.HTTP_200_OK)
 def receive_payment_webhook(
-    id: str = Query(..., description="ID de la notificación"),
-    type: str = Query(..., description="Tipo de notificación"),
-    service: PaymentServiceDep = None
+    body: dict
 ):
     """
     Recibe notificaciones de webhook de Mercado Pago
     
+    Mercado Pago envía un POST con body JSON:
+    {
+      "id": "123456",
+      "type": "payment",
+      "action": "payment.updated",
+      "data": {"id": "payment_id"},
+      "user_id": 279172247,
+      "live_mode": false
+    }
+    
     Args:
-        id: ID de la notificación
-        type: Tipo de notificación (payment, plan, subscription)
-        service: Servicio de pagos (inyectado)
+        body: Payload JSON del webhook de Mercado Pago
         
     Returns:
-        Confirmación de recepción
+        Confirmación de recepción con status 200
         
     Raises:
         HTTPException: Si hay error al procesar la notificación
     """
     from app.core.dependencies import get_payment_service_sync
     
-    # Usar versión sincrónica si no se inyectó
-    if service is None:
-        service = get_payment_service_sync()
+    notification_id = body.get("id")
+    notification_type = body.get("type")
     
-    # Mercado Pago envía la notificación con params, necesitamos obtener el pago
-    notification = {
-        "id": id,
-        "type": type,
-        "data": {"id": id}
-    }
+    logger.info(f"Webhook received: type={notification_type}, id={notification_id}, body={body}")
     
-    logger.info(f"Webhook received: type={type}, id={id}")
+    # Validar campos requeridos
+    if not notification_id or not notification_type:
+        logger.warning(f"Webhook missing required fields: id={notification_id}, type={notification_type}")
+        return {"status": "ignored", "reason": "missing_fields"}
+    
+    # Usar versión sincrónica de servicio
+    service = get_payment_service_sync()
     
     try:
-        result = service.process_webhook_notification(notification)
+        result = service.process_webhook_notification(body)
+        logger.info(f"Webhook processed successfully: {result}")
         return {
             "status": "received",
             "result": result
@@ -132,6 +139,9 @@ def receive_payment_webhook(
     except HTTPException as exc:
         logger.error(f"Error processing webhook: {exc.detail}")
         raise
+    except Exception as exc:
+        logger.exception(f"Unexpected error processing webhook: {str(exc)}")
+        return {"status": "error", "message": str(exc)}
 
 
 @payment_router.get("/payments/callback", status_code=status.HTTP_302_FOUND)
