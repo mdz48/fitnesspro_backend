@@ -25,7 +25,22 @@
 
 - MVP implementa solo pagos únicos por MXN 149 (sin suscripciones recurrentes aún)
 - Las suscripciones recurrentes se agregarán en fase 2
-- Ver `PAYMENT_IMPLEMENTATION.md` para documentación completa de endpoints, configuración y flujos
+
+
+---
+
+### Consideraciones de arquitectura
+
+- **No hay autenticación en los endpoints de pago.** Cualquiera con un `user_id` válido puede
+  crear un checkout. En fase 2 se agregarán tokens JWT para proteger estos endpoints.
+- **El webhook llega al servidor EC2** (`fitnesspro.redirectme.net`). Si el servidor está caído
+  cuando MP envía el webhook, MP reintentará automáticamente hasta 72 horas.
+- **Un `preference_id` es de un solo uso.** Si el usuario abandona el pago, la app debe llamar
+  de nuevo a `POST /payments/checkout` para generar uno nuevo.
+- **La tabla `payments` en BD guarda el historial completo.** Si un usuario llama múltiples veces
+  al checkout, habrá múltiples registros. El frontend debe guardar el `preference_id` más reciente.
+
+---
 
 ## [1.3.6] - 2026-03-29
 
