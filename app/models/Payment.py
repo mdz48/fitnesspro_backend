@@ -2,10 +2,8 @@
 Modelo ORM para pagos y preferencias de Mercado Pago
 """
 from sqlalchemy import Column, Integer, String, Float, DateTime, Text
-from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
-
-Base = declarative_base()
+from app.shared.config.database import Base
 
 
 class Payment(Base):

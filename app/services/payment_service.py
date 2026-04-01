@@ -31,7 +31,14 @@ class PaymentService:
         self.mp_config = mp_config
         self.mp_client = mp_config.get_client()
     
-    def create_checkout_preference(self, user_id: int, success_url: str, pending_url: str, failure_url: str) -> dict:
+    def create_checkout_preference(
+        self,
+        user_id: int,
+        success_url: str,
+        pending_url: str,
+        failure_url: str,
+        notification_url: str | None = None
+    ) -> dict:
         """
         Crea una preferencia de pago en Mercado Pago
         
@@ -40,6 +47,7 @@ class PaymentService:
             success_url: URL de retorno en caso de pago exitoso
             pending_url: URL de retorno si el pago está pendiente
             failure_url: URL de retorno si el pago falla
+            notification_url: URL webhook para notificaciones por transacción
             
         Returns:
             Diccionario con preference_id e init_point de Mercado Pago
@@ -83,6 +91,9 @@ class PaymentService:
                     })
                 }
             }
+
+            if notification_url:
+                preference_data["notification_url"] = notification_url
             
             # Crear preferencia en Mercado Pago
             response = self.mp_client.preference().create(preference_data)

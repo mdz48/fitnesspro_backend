@@ -14,16 +14,16 @@ class PaymentRepository(BaseRepository[Payment]):
     
     def get_by_preference_id(self, preference_id: str) -> Payment | None:
         """Obtiene un pago por preference_id de Mercado Pago"""
-        return self.session.query(Payment).filter(Payment.preference_id == preference_id).first()
+        return self.db.query(Payment).filter(Payment.preference_id == preference_id).first()
     
     def get_by_payment_id(self, payment_id: str) -> Payment | None:
         """Obtiene un pago por payment_id de Mercado Pago"""
-        return self.session.query(Payment).filter(Payment.payment_id == payment_id).first()
+        return self.db.query(Payment).filter(Payment.payment_id == payment_id).first()
     
     def get_by_user_id(self, user_id: int) -> list[Payment]:
         """Obtiene todos los pagos de un usuario"""
-        return self.session.query(Payment).filter(Payment.user_id == user_id).order_by(Payment.created_at.desc()).all()
+        return self.db.query(Payment).filter(Payment.user_id == user_id).order_by(Payment.created_at.desc()).all()
     
     def get_by_external_reference(self, external_reference: str) -> Payment | None:
         """Obtiene un pago por referencia externa"""
-        return self.session.query(Payment).filter(Payment.external_reference == external_reference).first()
+        return self.db.query(Payment).filter(Payment.external_reference == external_reference).first()

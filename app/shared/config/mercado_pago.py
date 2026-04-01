@@ -12,6 +12,8 @@ class MercadoPagoConfig:
         self.usuario = os.getenv('USUARIO_MERCADOPAGO')
         self.contrasena = os.getenv('CONTRASENA_MERCADOPAGO')
         self.codigo_verificacion = os.getenv('CODIGO_VERIFICACION_MERCADOPAGO')
+        self.webhook_secret = os.getenv('MERCADOPAGO_WEBHOOK_SECRET') or self.codigo_verificacion
+        self.validate_webhook_signature = os.getenv('MERCADOPAGO_VALIDATE_WEBHOOK_SIGNATURE', 'false').lower() == 'true'
 
     def get_client(self):
         return mercadopago.SDK(self.access_token)

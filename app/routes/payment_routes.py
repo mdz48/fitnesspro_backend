@@ -3,6 +3,8 @@ Rutas para pagos con Mercado Pago
 """
 import os
 import logging
+import hashlib
+import hmac
 from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException, status, Query, Request
 from app.schemas.payment_schema import PaymentPreferenceRequest, PaymentPreferenceResponse, PaymentStatusResponse
@@ -10,14 +12,67 @@ from app.core.dependencies import PaymentServiceDep
 
 load_dotenv()
 
-# Obtener URL base del servidor desde variable de entorno
-# En desarrollo: http://tu_ip:8000
-# En produccion: https://tu_dominio.com
-SERVER_URL = os.getenv("SERVER_URL", "http://localhost:8000")
+SERVER_URL = os.getenv("SERVER_URL")
+if not SERVER_URL:
+    raise ValueError("SERVER_URL environment variable is not set. Please set it to the base URL of your server.")
 
 logger = logging.getLogger(__name__)
 
 payment_router = APIRouter()
+
+
+def _parse_x_signature(signature_header: str) -> tuple[str | None, str | None]:
+    ts_value = None
+    v1_value = None
+
+    for part in signature_header.split(','):
+        key_value = part.split('=', 1)
+        if len(key_value) != 2:
+            continue
+        key = key_value[0].strip().lower()
+        value = key_value[1].strip()
+        if key == 'ts':
+            ts_value = value
+        elif key == 'v1':
+            v1_value = value
+
+    return ts_value, v1_value
+
+
+def _build_manifest(data_id: str, request_id: str, ts_value: str) -> str:
+    manifest_parts = []
+    if data_id:
+        manifest_parts.append(f"id:{data_id}")
+    if request_id:
+        manifest_parts.append(f"request-id:{request_id}")
+    if ts_value:
+        manifest_parts.append(f"ts:{ts_value}")
+
+    if not manifest_parts:
+        return ""
+
+    return ";".join(manifest_parts) + ";"
+
+
+def _is_valid_webhook_signature(
+    secret: str,
+    signature_header: str,
+    request_id: str,
+    data_id: str
+) -> bool:
+    if not secret or not signature_header:
+        return False
+
+    ts_value, v1_value = _parse_x_signature(signature_header)
+    if not ts_value or not v1_value:
+        return False
+
+    manifest = _build_manifest(data_id=data_id, request_id=request_id, ts_value=ts_value)
+    if not manifest:
+        return False
+
+    generated = hmac.new(secret.encode(), manifest.encode(), hashlib.sha256).hexdigest()
+    return hmac.compare_digest(generated, v1_value)
 
 
 @payment_router.post("/payments/checkout", response_model=PaymentPreferenceResponse, status_code=status.HTTP_201_CREATED)
@@ -40,15 +95,19 @@ def create_checkout_preference(
     """
     # URLs de retorno (se configuran desde variable de entorno SERVER_URL)
     # Opción 3: La app usa webhook + polling, estas URLs son fallback
-    success_url = f"{SERVER_URL}/api/payments/callback?preference_id={{preference_id}}&status=approved"
-    pending_url = f"{SERVER_URL}/api/payments/callback?preference_id={{preference_id}}&status=pending"
-    failure_url = f"{SERVER_URL}/api/payments/callback?preference_id={{preference_id}}&status=rejected"
+    # Mercado Pago requiere URLs válidas y completas en back_urls.
+    # No admite placeholders como {preference_id} en este campo.
+    success_url = f"{SERVER_URL}/api/payments/callback?status=approved"
+    pending_url = f"{SERVER_URL}/api/payments/callback?status=pending"
+    failure_url = f"{SERVER_URL}/api/payments/callback?status=rejected"
+    notification_url = f"{SERVER_URL}/api/webhooks/payments"
     
     result = service.create_checkout_preference(
         user_id=request.user_id,
         success_url=success_url,
         pending_url=pending_url,
-        failure_url=failure_url
+        failure_url=failure_url,
+        notification_url=notification_url
     )
     
     return PaymentPreferenceResponse(
@@ -141,6 +200,29 @@ def receive_payment_webhook(
     
     # Usar versión sincrónica de servicio
     service = get_payment_service_sync()
+
+    # Validación de firma: desactivada por defecto en desarrollo.
+    if service.mp_config.validate_webhook_signature:
+        secret = service.mp_config.webhook_secret or ""
+        signature_header = request.headers.get("x-signature", "")
+        request_id_header = request.headers.get("x-request-id", "")
+        data_id_for_signature = ""
+        if isinstance(body.get("data"), dict):
+            data_id_for_signature = str(body["data"].get("id", ""))
+
+        is_valid_signature = _is_valid_webhook_signature(
+            secret=secret,
+            signature_header=signature_header,
+            request_id=request_id_header,
+            data_id=data_id_for_signature
+        )
+
+        if not is_valid_signature:
+            logger.warning("Invalid webhook signature. Notification rejected")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={"code": "INVALID_SIGNATURE", "message": "Invalid webhook signature"}
+            )
     
     try:
         result = service.process_webhook_notification(body)
