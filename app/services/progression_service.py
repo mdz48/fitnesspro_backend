@@ -45,12 +45,13 @@ class ProgressionService:
 		if not progress_entries:
 			return WeightProgressSummary(
 				user_id=user_id,
-				goal=user.weight_goal,
+				target_weight=user.target_weight,
 				initial_weight=None,
 				current_weight=user.weight,
 				weight_change=None,
 				entries_count=0,
 				on_track=None,
+				trend=None,
 			)
 
 		initial_weight = progress_entries[0].weight
@@ -58,19 +59,26 @@ class ProgressionService:
 		weight_change = current_weight - initial_weight
 
 		on_track = None
-		if user.weight_goal == "bajar":
-			on_track = weight_change < 0
-		elif user.weight_goal == "subir":
-			on_track = weight_change > 0
-		elif user.weight_goal == "mantener":
-			on_track = abs(weight_change) <= 0.5
+		trend = None
+		if user.target_weight is not None:
+			initial_distance = abs(initial_weight - user.target_weight)
+			current_distance = abs(current_weight - user.target_weight)
+			on_track = current_distance <= initial_distance
+
+			if current_distance < initial_distance:
+				trend = "mejorando"
+			elif current_distance > initial_distance:
+				trend = "empeorando"
+			else:
+				trend = "sin_cambios"
 
 		return WeightProgressSummary(
 			user_id=user_id,
-			goal=user.weight_goal,
+			target_weight=user.target_weight,
 			initial_weight=initial_weight,
 			current_weight=current_weight,
 			weight_change=weight_change,
 			entries_count=len(progress_entries),
 			on_track=on_track,
+			trend=trend,
 		)
