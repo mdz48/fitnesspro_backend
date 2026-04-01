@@ -262,6 +262,12 @@ class PaymentService:
                 payment.status = "approved"
                 payment.confirmed_at = datetime.utcnow()
                 logger.info(f"Payment approved: payment_id={payment_id}, user_id={payment.user_id}")
+                # Actualizar membresía del usuario a premium
+                user = self.user_repo.get_by_id(payment.user_id)
+                if user:
+                    user.membership = "premium"
+                    self.user_repo.update(user)
+                    logger.info(f"User {payment.user_id} upgraded to premium")
             elif mp_payment_status == "pending":
                 payment.status = "pending"
                 logger.info(f"Payment pending: payment_id={payment_id}, user_id={payment.user_id}")
