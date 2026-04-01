@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-from fastapi import APIRouter, status, Form, HTTPException
+from fastapi import APIRouter, status, Form
 from app.schemas.user_schema import UserCreate, UserUpdate, LoginResponse, UserResponse
 from app.schemas.daily_content_schema import UserDailyContentResponse
 from app.core.dependencies import UserServiceDep, ExerciseServiceDep, RecipeServiceDep
@@ -41,17 +41,17 @@ def update_user(user_id: int, user: UserUpdate, service: UserServiceDep):
 
 
 @user_router.post("/login", response_model=LoginResponse)
-def login_user(email: str = Form(...), password: str = Form(...), service: UserServiceDep = None):
+def login_user(service: UserServiceDep, email: str = Form(...), password: str = Form(...)):
     return service.login_user(email, password)
 
 
 @user_router.post("/login/google", response_model=LoginResponse)
-def login_google_user(id_token: str = Form(...), service: UserServiceDep = None):
+def login_google_user(service: UserServiceDep, id_token: str = Form(...)):
     return service.login_google_user(id_token)
 
 
 @user_router.get("/users", response_model=list[UserResponse])
-def read_users(service: UserServiceDep = None):
+def read_users(service: UserServiceDep):
     return service.get_all_users()
 
 
@@ -62,10 +62,8 @@ async def read_user_daily_content(
     exercise_service: ExerciseServiceDep,
     recipe_service: RecipeServiceDep,
 ):
-    # Reutilizamos la validación existente para mantener consistencia de errores 404.
+    # Centralizamos el 404 de usuario en UserService para mantener un solo contrato de error.
     user = user_service.get_user_by_id(user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
 
     selected_day = _resolve_current_day()
     exercises = await exercise_service.get_exercises_by_user_and_day(user_id, selected_day)

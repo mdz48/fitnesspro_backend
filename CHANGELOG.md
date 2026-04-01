@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.4.0] - 2026-03-31
+
+### Añadido
+
+- **Integración de Mercado Pago para pagos únicos (MVP para Premium)**:
+  - Nuevo endpoint POST /api/payments/checkout para crear preferencias de pago
+  - Nuevo endpoint GET /api/payments/status/{preference_id} para verificar estado de pago
+  - Nuevo webhook en POST /api/webhooks/payments para procesar notificaciones de Mercado Pago
+  - Nuevo modelo ORM `Payment` para registrar todas las transacciones y preferencias
+  - Nuevo repositorio `PaymentRepository` con métodos CRUD para pagos
+  - Nuevo servicio `PaymentService` con lógica de integración con Mercado Pago
+  
+- **Configuración de Mercado Pago**:
+  - Clase `MercadoPagoConfig` para gestionar credenciales (public_key, access_token, user_id)
+  - Inyección de dependencias integrada en `app/core/dependencies.py`
+
+### Cambios
+
+- Se actualizó `main.py` para registrar las rutas de pagos
+- Se agregó nueva tabla `payments` a la base de datos para auditoría y seguimiento
+- Se mejoró la estructura de dependencias añadiendo `PaymentServiceDep` y `PaymentRepositoryDep`
+
+### Notas
+
+- MVP implementa solo pagos únicos por MXN 149 (sin suscripciones recurrentes aún)
+- Las suscripciones recurrentes se agregarán en fase 2
+- Ver `PAYMENT_IMPLEMENTATION.md` para documentación completa de endpoints, configuración y flujos
+
 ## [1.3.6] - 2026-03-29
 
 ### Añadido
