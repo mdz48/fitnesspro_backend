@@ -18,11 +18,12 @@ class WeightProgressResponse(BaseModel):
 
 class WeightProgressSummary(BaseModel):
     user_id: int
-    goal: Literal["bajar", "mantener", "subir"] | None = None
+    target_weight: float | None = None
     initial_weight: float | None = None
     current_weight: float | None = None
     weight_change: float | None = None
     entries_count: int = 0
     on_track: bool | None = None
+    trend: Literal["mejorando", "empeorando", "sin_cambios"] | None = None
 
     model_config = ConfigDict(from_attributes=True)

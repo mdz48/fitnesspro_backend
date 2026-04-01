@@ -23,7 +23,7 @@ class User(Base):
     weight = Column(Float, nullable=True)
     height = Column(Float, nullable=True)
     gender = Column(Enum("hombre", "mujer", "otro"), nullable=True)
-    weight_goal = Column(Enum("bajar", "mantener", "subir"), nullable=True)
+    target_weight = Column(Float, nullable=True)
     membership = Column(Enum("gratuito", "premium", "admin"), default="gratuito", nullable=False)
 
     exercises = relationship("Exercise", back_populates="user")

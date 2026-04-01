@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.7] - 2026-03-31
+
+### Cambios
+
+- Se reemplazó el objetivo de peso por enum (`bajar`, `mantener`, `subir`) por un objetivo numérico en kilogramos (`target_weight`) en el modelo y esquemas de usuario.
+- Se actualizó el resumen de progresión de peso para devolver `target_weight` y una tendencia explícita (`mejorando`, `empeorando`, `sin_cambios`) según la distancia al objetivo.
+
 ## [1.3.6] - 2026-03-29
 
 ### Añadido

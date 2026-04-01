@@ -87,7 +87,7 @@ class UserService:
             weight=user_data.weight,
             height=user_data.height,
             gender=user_data.gender,
-            weight_goal=user_data.weight_goal,
+            target_weight=user_data.target_weight,
             membership=normalized_membership
         )
         
@@ -224,7 +224,7 @@ class UserService:
                 weight=None,
                 height=None,
                 gender=None,
-                weight_goal=None,
+                target_weight=None,
                 membership="gratuito"
             )
             user = self.repository.create(user)
