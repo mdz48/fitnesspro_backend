@@ -214,10 +214,7 @@ class PaymentService:
                 
                 if mp_status != 200:
                     logger.warning(f"Could not fetch payment from MP: payment_id={payment_id}")
-                    raise HTTPException(
-                        status_code=503,
-                        detail={"code": "SYNC_ERROR", "message": "Could not fetch payment info"}
-                    )
+                    return {"status": "ignored", "reason": "payment_not_found_in_mp", "payment_id": payment_id}
                 
                 mp_payment_data = mp_payment.get("response", {})
                 external_ref = mp_payment_data.get("external_reference", "")
@@ -238,7 +235,7 @@ class PaymentService:
             
             if mp_payment_response.get("status") != 200:
                 logger.warning(f"Could not fetch payment status from MP: {mp_payment_response}")
-                raise HTTPException(status_code=503, detail="Could not fetch payment status")
+                return {"status": "ignored", "reason": "payment_status_unavailable", "payment_id": payment_id}
             
             mp_payment_info = mp_payment_response.get("response", {})
             mp_payment_status = mp_payment_info.get("status")

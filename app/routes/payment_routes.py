@@ -4,7 +4,7 @@ Rutas para pagos con Mercado Pago
 import os
 import logging
 from dotenv import load_dotenv
-from fastapi import APIRouter, HTTPException, status, Query
+from fastapi import APIRouter, HTTPException, status, Query, Request
 from app.schemas.payment_schema import PaymentPreferenceRequest, PaymentPreferenceResponse, PaymentStatusResponse
 from app.core.dependencies import PaymentServiceDep
 
@@ -90,6 +90,7 @@ def get_payment_status(
 
 @payment_router.post("/webhooks/payments", status_code=status.HTTP_200_OK)
 def receive_payment_webhook(
+    request: Request,
     body: dict
 ):
     """
@@ -118,6 +119,18 @@ def receive_payment_webhook(
     
     notification_id = body.get("id")
     notification_type = body.get("type")
+
+    # Mercado Pago puede enviar parte de los datos también por query params.
+    query_notification_type = request.query_params.get("type")
+    query_data_id = request.query_params.get("data.id")
+
+    if not notification_type and query_notification_type:
+        notification_type = query_notification_type
+
+    if body.get("data") is None and query_data_id:
+        body["data"] = {"id": query_data_id}
+    elif isinstance(body.get("data"), dict) and not body["data"].get("id") and query_data_id:
+        body["data"]["id"] = query_data_id
     
     logger.info(f"Webhook received: type={notification_type}, id={notification_id}, body={body}")
     
@@ -138,10 +151,24 @@ def receive_payment_webhook(
         }
     except HTTPException as exc:
         logger.error(f"Error processing webhook: {exc.detail}")
-        raise
+        # Confirmamos recepción para evitar reintentos por errores transitorios.
+        return {
+            "status": "received",
+            "result": {
+                "status": "ignored",
+                "reason": "processing_error",
+                "detail": str(exc.detail)
+            }
+        }
     except Exception as exc:
         logger.exception(f"Unexpected error processing webhook: {str(exc)}")
-        return {"status": "error", "message": str(exc)}
+        return {
+            "status": "received",
+            "result": {
+                "status": "ignored",
+                "reason": "unexpected_error"
+            }
+        }
 
 
 @payment_router.get("/payments/callback", status_code=status.HTTP_302_FOUND)
