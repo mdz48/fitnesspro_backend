@@ -4,8 +4,8 @@ from typing import Literal
 
 class UserBase(BaseModel):
     email: EmailStr | None = None
-    name: str | None = None
-    lastname: str | None = None
+    name: str | None = "Mdz"
+    lastname: str | None = "C"
     birthdate: date | None = None
     weight: float | None = None
     height: float | None = None
@@ -16,8 +16,8 @@ class UserBase(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 class UserCreate(UserBase):
-    email: EmailStr
-    password: str | None = None
+    email: EmailStr | None = "1@1.com"
+    password: str | None = "1"
 
 
 class UserUpdate(BaseModel):

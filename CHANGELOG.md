@@ -1,11 +1,46 @@
 # Changelog
 
-## [1.3.7] - 2026-03-31
+## [1.4.0] - 2026-03-31
+
+### Añadido
+
+- **Integración de Mercado Pago para pagos únicos (MVP para Premium)**:
+  - Nuevo endpoint POST /api/payments/checkout para crear preferencias de pago
+  - Nuevo endpoint GET /api/payments/status/{preference_id} para verificar estado de pago
+  - Nuevo webhook en POST /api/webhooks/payments para procesar notificaciones de Mercado Pago
+  - Nuevo modelo ORM `Payment` para registrar todas las transacciones y preferencias
+  - Nuevo repositorio `PaymentRepository` con métodos CRUD para pagos
+  - Nuevo servicio `PaymentService` con lógica de integración con Mercado Pago
+- **Configuración de Mercado Pago**:
+  - Clase `MercadoPagoConfig` para gestionar credenciales (public_key, access_token, user_id)
+  - Inyección de dependencias integrada en `app/core/dependencies.py`
 
 ### Cambios
 
-- Se reemplazó el objetivo de peso por enum (`bajar`, `mantener`, `subir`) por un objetivo numérico en kilogramos (`target_weight`) en el modelo y esquemas de usuario.
-- Se actualizó el resumen de progresión de peso para devolver `target_weight` y una tendencia explícita (`mejorando`, `empeorando`, `sin_cambios`) según la distancia al objetivo.
+- Se actualizó `main.py` para registrar las rutas de pagos
+- Se agregó nueva tabla `payments` a la base de datos para auditoría y seguimiento
+- Se mejoró la estructura de dependencias añadiendo `PaymentServiceDep` y `PaymentRepositoryDep`
+
+### Notas
+
+- MVP implementa solo pagos únicos por MXN 149 (sin suscripciones recurrentes aún)
+- Las suscripciones recurrentes se agregarán en fase 2
+
+
+---
+
+### Consideraciones de arquitectura
+
+- **No hay autenticación en los endpoints de pago.** Cualquiera con un `user_id` válido puede
+  crear un checkout. En fase 2 se agregarán tokens JWT para proteger estos endpoints.
+- **El webhook llega al servidor EC2** (`fitnesspro.redirectme.net`). Si el servidor está caído
+  cuando MP envía el webhook, MP reintentará automáticamente hasta 72 horas.
+- **Un `preference_id` es de un solo uso.** Si el usuario abandona el pago, la app debe llamar
+  de nuevo a `POST /payments/checkout` para generar uno nuevo.
+- **La tabla `payments` en BD guarda el historial completo.** Si un usuario llama múltiples veces
+  al checkout, habrá múltiples registros. El frontend debe guardar el `preference_id` más reciente.
+
+---
 
 ## [1.3.6] - 2026-03-29
 

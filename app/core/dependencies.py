@@ -10,13 +10,16 @@ from app.repositories.user_repository import UserRepository
 from app.repositories.recipe_repository import RecipeRepository
 from app.repositories.exercise_repository import ExerciseRepository
 from app.repositories.progression_repository import ProgressionRepository
+from app.repositories.payment_repository import PaymentRepository
 from app.services.user_service import UserService
 from app.services.recipe_service import RecipeService
 from app.services.exercise_service import ExerciseService
 from app.services.progression_service import ProgressionService
+from app.services.payment_service import PaymentService
 from app.services.external_api_service import ExternalAPIClient
 from app.services.external_recipe_service import ExternalRecipeService
 from app.shared.config.external_api_config import EXERCISEDB_BASE_URL, MEALDB_BASE_URL
+from app.shared.config.mercado_pago import MercadoPagoConfig
 
 
 # === Dependencias de Repositorios ===
@@ -39,6 +42,11 @@ def get_exercise_repository(db: Session = Depends(get_db)) -> ExerciseRepository
 def get_progression_repository(db: Session = Depends(get_db)) -> ProgressionRepository:
     """Inyecta el repositorio de progresión de peso"""
     return ProgressionRepository(db)
+
+
+def get_payment_repository(db: Session = Depends(get_db)) -> PaymentRepository:
+    """Inyecta el repositorio de pagos"""
+    return PaymentRepository(db)
 
 
 # === Dependencias de Servicios Core ===
@@ -96,6 +104,20 @@ def get_external_recipe_service(
     return ExternalRecipeService(api_client)
 
 
+def get_mercadopago_config() -> MercadoPagoConfig:
+    """Inyecta la configuración de Mercado Pago"""
+    return MercadoPagoConfig()
+
+
+def get_payment_service(
+    repository: PaymentRepository = Depends(get_payment_repository),
+    user_repository: UserRepository = Depends(get_user_repository),
+    mp_config: MercadoPagoConfig = Depends(get_mercadopago_config)
+) -> PaymentService:
+    """Inyecta el servicio de pagos"""
+    return PaymentService(repository, user_repository, mp_config)
+
+
 # === Type Aliases para anotaciones ===
 
 UserServiceDep = Annotated[UserService, Depends(get_user_service)]
@@ -103,3 +125,19 @@ RecipeServiceDep = Annotated[RecipeService, Depends(get_recipe_service)]
 ExerciseServiceDep = Annotated[ExerciseService, Depends(get_exercise_service)]
 ProgressionServiceDep = Annotated[ProgressionService, Depends(get_progression_service)]
 ExternalRecipeServiceDep = Annotated[ExternalRecipeService, Depends(get_external_recipe_service)]
+PaymentServiceDep = Annotated[PaymentService, Depends(get_payment_service)]
+
+
+# === Funciones auxiliares para uso sincrónico ===
+
+def get_payment_service_sync() -> PaymentService:
+    """Obtiene el servicio de pagos de forma sincrónica (para no-async routes)"""
+    from app.shared.config.database import SessionLocal
+    db = SessionLocal()
+    try:
+        repository = PaymentRepository(db)
+        user_repository = UserRepository(db)
+        mp_config = MercadoPagoConfig()
+        return PaymentService(repository, user_repository, mp_config)
+    finally:
+        db.close()
