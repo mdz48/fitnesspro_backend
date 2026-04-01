@@ -13,21 +13,27 @@ Se ha implementado un flujo de pago **único** (sin suscripciones recurrentes po
 ## Archivos Creados
 
 ### Schemas
+
 - `app/schemas/payment_schema.py` - Modelos de request/response para pagos
 
 ### Modelos ORM
+
 - `app/models/Payment.py` - Tabla `payments` para guardar preferencias y pagos
 
 ### Repositorios
+
 - `app/repositories/payment_repository.py` - CRUD para pagos
 
 ### Servicios
+
 - `app/services/payment_service.py` - Lógica de negocio de pagos
 
 ### Rutas
+
 - `app/routes/payment_routes.py` - Endpoints REST
 
 ### Configuración
+
 - Actualizado: `app/core/dependencies.py` - Inyección de dependencias
 - Actualizado: `main.py` - Registro de rutas
 
@@ -36,6 +42,7 @@ Se ha implementado un flujo de pago **único** (sin suscripciones recurrentes po
 ## Endpoints Disponibles
 
 ### 1. Crear Preferencia de Pago (Checkout)
+
 ```
 POST /api/payments/checkout
 Content-Type: application/json
@@ -54,6 +61,7 @@ Response (201 Created):
 ```
 
 **Flujo**:
+
 1. Frontend obtiene user_id del usuario autenticado
 2. Llamada a POST /api/payments/checkout
 3. Backend crea preferencia en Mercado Pago
@@ -61,6 +69,7 @@ Response (201 Created):
 5. Frontend redirige a `init_point` (URL de checkout)
 
 ### 2. Consultar Estado de Pago
+
 ```
 GET /api/payments/status/{preference_id}
 
@@ -76,6 +85,7 @@ Response:
 ```
 
 ### 3. Webhook de Notificaciones (Mercado Pago → Backend)
+
 ```
 POST /api/webhooks/payments?id=12345&type=payment
 
@@ -114,6 +124,7 @@ SERVER_URL=http://192.168.0.100:8000
 ```
 
 **Cómo obtenerlas**:
+
 1. Ir a https://www.mercadopago.com.mx/developers/panel
 2. Crear/seleccionar aplicación
 3. Copiar credenciales desde el panel del desarrollador
@@ -124,6 +135,7 @@ SERVER_URL=http://192.168.0.100:8000
 ## Configuración en Mercado Pago
 
 ### Crear Plan (Opcional para MVP)
+
 Para MVP **solo se usan pagos únicos**, pero si deseas agregar suscripciones después:
 
 1. Dashboard Mercado Pago
@@ -134,6 +146,7 @@ Para MVP **solo se usan pagos únicos**, pero si deseas agregar suscripciones de
    - Precio: 149 MXN
 
 ### Configurar Webhooks
+
 1. Dashboard → Configuración → Webhooks
 2. Agregar URL pública de tu backend: `https://tuapi.com/api/webhooks/payments`
 3. Seleccionar eventos: "payment.created", "payment.updated"
@@ -150,7 +163,7 @@ Para MVP **solo se usan pagos únicos**, pero si deseas agregar suscripciones de
 3. Frontend: POST /api/payments/checkout
    {user_id: 123}
    ↓
-4. Backend: 
+4. Backend:
    - Verifica user existe
    - Crea preferencia en Mercado Pago
    - Guarda en tabla payments
@@ -177,28 +190,31 @@ Para MVP **solo se usan pagos únicos**, pero si deseas agregar suscripciones de
 ```
 
 **Ventajas de esta opción**:
+
 - ✅ No necesita URLs públicas complicadas (IP + puerto funciona)
 - ✅ Funciona igual en desarrollo, staging y producción
 - ✅ Webhook es la fuente de verdad (no depende del redirect)
 - ✅ APP es más predecible (sin sorpresas de navegación)
-
 
 ---
 
 ## Pasos Próximos (TODO)
 
 ### Fase 1: Activación de Premium
+
 - [ ] Agregar campo `is_premium` a tabla `User`
 - [ ] Actualizar `user_service.update_user` para activar premium cuando pago sea "approved"
 - [ ] Endpoint GET /api/users/me/is-premium para frontend
 
 ### Fase 2: Suscripciones Recurrentes
+
 - [ ] Cambiar a Mercado Pago Subscription API
 - [ ] Agregar campos a `Payment`: `subscription_id`, `next_billing_date`, `cancel_at_period_end`
 - [ ] Implementar endpoint de cancelación: DELETE /api/subscriptions/{subscription_id}
 - [ ] Manejar reintentos automáticos de cobro (dunning)
 
 ### Fase 3: Administración
+
 - [ ] Panel para ver historial de pagos
 - [ ] Refunds/reembolsos
 - [ ] Reportes de ingresos netos
@@ -208,12 +224,14 @@ Para MVP **solo se usan pagos únicos**, pero si deseas agregar suscripciones de
 ## Seguridad y Buenas Prácticas
 
 ✅ **Implementado**:
+
 - Validación de usuario existe
 - Guardado de datos de pago en BD para auditoría
 - Webhook sin confiar solo en redirect del frontend
 - Logging de operaciones
 
 ⚠️ **Recomendaciones para Producción**:
+
 - [ ] Validar firma de webhook (usar `X-Signature` header de MP)
 - [ ] Rate limiting en endpoint de webhooks
 - [ ] Encriptar datos sensibles en BD
@@ -227,6 +245,7 @@ Para MVP **solo se usan pagos únicos**, pero si deseas agregar suscripciones de
 ### Test Manual en Sandbox (Con IP Local)
 
 **Paso 1: Obtener tu IP local**
+
 ```bash
 # Windows
 ipconfig  # Buscar IPv4 Address (ej: 192.168.x.x)
@@ -236,17 +255,20 @@ ifconfig  # Buscar inet (ej: 192.168.x.x)
 ```
 
 **Paso 2: Configurar SERVER_URL en .env**
+
 ```env
 SERVER_URL=http://192.168.x.x:8000
 # Reemplaza 192.168.x.x con tu IP real
 ```
 
 **Paso 3: Iniciar servidor**
+
 ```bash
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 **Paso 4: Test en Postman/Insomnia**
+
 ```
 POST http://192.168.x.x:8000/api/payments/checkout
 Content-Type: application/json
@@ -257,20 +279,24 @@ Content-Type: application/json
 ```
 
 **Paso 5: Abre el init_point en navegador**
+
 - Usa la URL sandbox o production según tus credenciales
 - Mercado Pago te dará tarjetas de prueba
 
 **Paso 6: Consulta estado después de pagar**
+
 ```
 GET http://192.168.x.x:8000/api/payments/status/{preference_id}
 ```
 
 **Paso 7: Simula webhook (entorno local)**
+
 ```bash
 curl -X POST "http://192.168.x.x:8000/api/webhooks/payments?id=12345&type=payment"
 ```
 
 ### En Producción
+
 - Reemplaza `SERVER_URL` con tu dominio: `https://api.tudominio.com`
 - Asegúrate de que:
   1. Tu API está en HTTPS
@@ -278,6 +304,7 @@ curl -X POST "http://192.168.x.x:8000/api/webhooks/payments?id=12345&type=paymen
   3. Configuraste el webhook en dashboard de MP
 
 ### Test Webhook
+
 ```bash
 curl -X POST "http://localhost:8000/api/webhooks/payments?id=123456&type=payment"
 ```
@@ -294,6 +321,7 @@ curl -X POST "http://localhost:8000/api/webhooks/payments?id=123456&type=payment
 ---
 
 ## Referencias
+
 - [Mercado Pago Docs - Checkout Pro](https://www.mercadopago.com.mx/developers/es/docs/checkout-pro/landing)
 - [Mercado Pago Docs - Webhooks](https://www.mercadopago.com.mx/developers/es/docs/subscriptions/additional-content/your-integrations/notifications/webhooks)
 - Credenciales test disponibles en dashboard de Mercado Pago

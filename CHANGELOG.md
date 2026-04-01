@@ -11,7 +11,6 @@
   - Nuevo modelo ORM `Payment` para registrar todas las transacciones y preferencias
   - Nuevo repositorio `PaymentRepository` con métodos CRUD para pagos
   - Nuevo servicio `PaymentService` con lógica de integración con Mercado Pago
-  
 - **Configuración de Mercado Pago**:
   - Clase `MercadoPagoConfig` para gestionar credenciales (public_key, access_token, user_id)
   - Inyección de dependencias integrada en `app/core/dependencies.py`

@@ -3,11 +3,13 @@
 ## TL;DR - Rápido
 
 1. **Obtén tu IP local**:
+
    ```powershell
    ipconfig  # Busca IPv4 Address (ej: 192.168.0.100)
    ```
 
 2. **Agrega a `.env`**:
+
    ```env
    SERVER_URL=http://192.168.0.100:8000
    MERCADOPAGO_PUBLIC_KEY=PKtest_xxxxx
@@ -16,11 +18,13 @@
    ```
 
 3. **Inicia servidor en modo público**:
+
    ```bash
    uvicorn main:app --reload --host 0.0.0.0 --port 8000
    ```
 
 4. **Crea pago desde otra máquina/app**:
+
    ```bash
    curl -X POST "http://192.168.0.100:8000/api/payments/checkout" \
      -H "Content-Type: application/json" \
@@ -39,6 +43,7 @@
 ## Explicación del Flujo (Opción 3 para Apps Móviles)
 
 Usamos **webhook + polling** porque:
+
 - ✅ No necesitas URL pública compleja
 - ✅ La app móvil controla el timeline
 - ✅ El webhook es la fuente de verdad (no un redirect)
@@ -69,11 +74,11 @@ Usamos **webhook + polling** porque:
     │ 3. Redirige a     │ 4. Webhook          │
     │    callback       │    (backend)        │
     ↓                   ↓                     ↓
-┌────────┐     ┌──────────────────────────┐  
-│ App    │     │ Backend: actualiza BD    │  
-│ ignora │     │ - status = "approved"    │  
-└────────┘     └──────────────────────────┘  
-    
+┌────────┐     ┌──────────────────────────┐
+│ App    │     │ Backend: actualiza BD    │
+│ ignora │     │ - status = "approved"    │
+└────────┘     └──────────────────────────┘
+
    5. App hace polling cada 2 seg
       GET /api/payments/status/{id}
       → status: approved → ¡Premium activado!
@@ -116,6 +121,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 **Salida esperada**:
+
 ```
 INFO:     Uvicorn running on http://0.0.0.0:8000
 INFO:     Application startup complete
@@ -124,6 +130,7 @@ INFO:     Application startup complete
 ### 4. Accede desde Otra Máquina/Dispositivo
 
 Desde otra computadora o la app móvil:
+
 ```
 http://192.168.0.100:8000/docs
 → Ves Swagger UI con los endpoints documentados
@@ -134,6 +141,7 @@ http://192.168.0.100:8000/docs
 ## Endpoints Principales
 
 ### Crear Preferencia de Pago
+
 ```bash
 POST http://192.168.0.100:8000/api/payments/checkout
 Content-Type: application/json
@@ -144,6 +152,7 @@ Content-Type: application/json
 ```
 
 **Response**:
+
 ```json
 {
   "preference_id": "123456789",
@@ -153,11 +162,13 @@ Content-Type: application/json
 ```
 
 ### Consultar Estado
+
 ```bash
 GET http://192.168.0.100:8000/api/payments/status/123456789
 ```
 
 **Response**:
+
 ```json
 {
   "preference_id": "123456789",
@@ -170,6 +181,7 @@ GET http://192.168.0.100:8000/api/payments/status/123456789
 ```
 
 ### Webhook (Mercado Pago → Backend)
+
 ```bash
 POST http://192.168.0.100:8000/api/webhooks/payments?id=12345&type=payment
 ```
@@ -179,6 +191,7 @@ POST http://192.168.0.100:8000/api/webhooks/payments?id=12345&type=payment
 ## Prueba Completa
 
 ### 1. Crear Pago
+
 ```bash
 curl -X POST http://192.168.0.100:8000/api/payments/checkout \
   -H "Content-Type: application/json" \
@@ -188,23 +201,27 @@ curl -X POST http://192.168.0.100:8000/api/payments/checkout \
 Guarda el `preference_id` (ej: `123456789`)
 
 ### 2. Verifica Estado (antes de pagar)
+
 ```bash
 curl http://192.168.0.100:8000/api/payments/status/123456789
 # → status: pending
 ```
 
 ### 3. Abre el Checkout
+
 - Copia `sandbox_init_point` en navegador
 - Usa tarjeta de prueba (MP te da opciones)
 - Completa el pago
 
 ### 4. Verifica Estado (después de pagar)
+
 ```bash
 curl http://192.168.0.100:8000/api/payments/status/123456789
 # → status: approved
 ```
 
 ### 5. Simula Webhook
+
 ```bash
 curl -X POST http://192.168.0.100:8000/api/webhooks/payments?id=123456789&type=payment
 # Verifica logs del backend para confirmar que se procesó
@@ -234,7 +251,7 @@ Timer.periodic(Duration(seconds: 2), (timer) async {
   final statusResponse = await http.get(
     Uri.parse('http://192.168.0.100:8000/api/payments/status/$preferenceId'),
   );
-  
+
   if (statusResponse.body['status'] == 'approved') {
     timer.cancel();
     // ¡Activa Premium!
@@ -248,21 +265,25 @@ Timer.periodic(Duration(seconds: 2), (timer) async {
 ## Troubleshooting
 
 ### Error: "Connection refused"
+
 - ✅ Verifica que el servidor está corriendo: `uvicorn main:app --host 0.0.0.0 --port 8000`
 - ✅ Verifica que usaste la IP correcta (no localhost)
 - ✅ Verifica firewall no bloquea puerto 8000
 
 ### Error: "Cannot connect from app"
+
 - ✅ Usa IP local real, no 127.0.0.1 ni localhost
 - ✅ Ambas máquinas en la **misma red WiFi**
 - ✅ Prueba ping: `ping 192.168.0.100`
 
 ### Error: "Mercado Pago invalid credentials"
+
 - ✅ Copia credenciales exactas del dashboard MP
 - ✅ Usa tokens TEST, no PROD (para sandbox)
 - ✅ Reload servidor y limpia env después de cambiar
 
 ### Webhook no se procesa
+
 - ✅ Verifica que SERVER_URL en .env es correcto
 - ✅ Revisa logs del backend
 - ✅ Asegúrate que Mercado Pago puede alcanzar tu IP (configura webhook en dashboard MP)
@@ -274,6 +295,7 @@ Timer.periodic(Duration(seconds: 2), (timer) async {
 Cuando lleves a producción:
 
 1. Cambia `SERVER_URL` en .env a tu dominio/IP pública:
+
    ```env
    SERVER_URL=https://api.tudominio.com
    ```
