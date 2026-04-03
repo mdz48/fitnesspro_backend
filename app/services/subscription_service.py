@@ -96,17 +96,14 @@ class SubscriptionService:
             external_reference = f"user_{user_id}_plan_{plan_id}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
             
             # Construir datos para Mercado Pago
+            # auto_recurring NO se envía cuando se usa preapproval_plan_id;
+            # el plan ya contiene esos datos y mandarlos duplicados hace que
+            # MP intente cobrar inmediatamente requiriendo card_token_id.
             subscription_data = {
                 "preapproval_plan_id": plan.mp_plan_id,
                 "reason": plan.reason,
                 "external_reference": external_reference,
                 "payer_email": user.email,
-                "auto_recurring": {
-                    "frequency": plan.frequency,
-                    "frequency_type": plan.frequency_type,
-                    "transaction_amount": plan.transaction_amount,
-                    "currency_id": plan.currency_id
-                },
                 "back_url": back_url or plan.back_url
             }
 
@@ -282,9 +279,14 @@ class SubscriptionService:
             
             if response.get("status") not in [200, 201]:
                 logger.error(f"MP Error creating subscription: {response}")
+                response_status = int(response.get("status") or 503)
                 raise HTTPException(
-                    status_code=503,
-                    detail={"code": "MERCADOPAGO_ERROR", "message": "Error al crear la suscripción"}
+                    status_code=response_status if 400 <= response_status < 600 else 503,
+                    detail={
+                        "code": "MERCADOPAGO_ERROR",
+                        "message": "Error al crear la suscripción en Mercado Pago",
+                        "mp_response": response
+                    }
                 )
             
             response_data = response.get("response", {})

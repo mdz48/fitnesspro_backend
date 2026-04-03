@@ -53,7 +53,6 @@
 - MVP implementa solo pagos únicos por MXN 149 (sin suscripciones recurrentes aún)
 - Las suscripciones recurrentes se agregarán en fase 2
 
-
 ---
 
 ### Consideraciones de arquitectura

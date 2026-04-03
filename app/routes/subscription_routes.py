@@ -36,6 +36,40 @@ logger = logging.getLogger(__name__)
 subscription_router = APIRouter()
 
 
+def _resolve_mp_mode(value: str | None) -> str:
+    """Determina si una credencial de MP es test o production sin exponer su valor."""
+    if not value:
+        return "missing"
+    if value.startswith("TEST-"):
+        return "test"
+    if value.startswith("APP_USR-"):
+        return "production"
+    return "unknown"
+
+
+@subscription_router.get(
+    "/subscriptions/debug/mp-mode",
+    status_code=status.HTTP_200_OK
+)
+def get_mp_runtime_mode(
+    service: SubscriptionServiceDep
+):
+    """
+    Devuelve el modo de credenciales de Mercado Pago en runtime.
+
+    No expone tokens; solo reporta si backend corre en test/production.
+    """
+    access_token_mode = _resolve_mp_mode(service.mp_config.access_token)
+    public_key_mode = _resolve_mp_mode(service.mp_config.public_key)
+
+    return {
+        "access_token_mode": access_token_mode,
+        "public_key_mode": public_key_mode,
+        "modes_match": access_token_mode == public_key_mode,
+        "runtime_env": "backend_process"
+    }
+
+
 # ===== Rutas de Planes de Suscripción =====
 
 @subscription_router.post(
@@ -67,6 +101,7 @@ def create_subscription_plan(
         free_trial_type = request.free_trial.frequency_type.value
 
     SERVER_URL = os.getenv("SERVER_URL")
+    back_url = request.back_url or (f"{SERVER_URL}/api/subscriptions/callback" if SERVER_URL else None)
     notification_url = f"{SERVER_URL}/api/webhooks/subscriptions" if SERVER_URL else None
     
     result = service.create_plan(
@@ -82,7 +117,7 @@ def create_subscription_plan(
         billing_day_proportional=request.billing_day_proportional,
         free_trial_frequency=free_trial_freq,
         free_trial_frequency_type=free_trial_type,
-        back_url=request.back_url,
+        back_url=back_url,
         notification_url=notification_url
     )
     
