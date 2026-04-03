@@ -5,7 +5,7 @@ import logging
 import json
 import hmac
 import hashlib
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import HTTPException
 from app.shared.config.mercado_pago import MercadoPagoConfig
 from app.repositories.subscription_plan_repository import SubscriptionPlanRepository
@@ -119,6 +119,52 @@ class SubscriptionService:
             
             # Crear suscripción en Mercado Pago
             response = self.mp_client.preapproval().create(subscription_data)
+
+            if (
+                response.get("status") == 400
+                and not card_token_id
+                and (response.get("response", {}).get("message", "").lower() == "card_token_id is required")
+            ):
+                logger.info(
+                    "MP requires card_token_id for plan-based subscription. "
+                    "Falling back to no-plan checkout flow while preserving local plan_id=%s",
+                    plan_id,
+                )
+
+                fallback_data = {
+                    "reason": plan.reason,
+                    "external_reference": external_reference,
+                    "payer_email": user.email,
+                    "auto_recurring": {
+                        "frequency": plan.frequency,
+                        "frequency_type": plan.frequency_type,
+                        "transaction_amount": plan.transaction_amount,
+                        "currency_id": plan.currency_id,
+                    },
+                    "back_url": back_url or plan.back_url,
+                }
+
+                # En fallback (sin preapproval_plan_id), MP no toma el free_trial del plan.
+                # Para mantener comportamiento equivalente, diferimos el primer cobro con start_date.
+                if (
+                    plan.free_trial_frequency
+                    and plan.free_trial_frequency > 0
+                    and plan.free_trial_frequency_type
+                ):
+                    start_date = None
+                    if plan.free_trial_frequency_type == "days":
+                        start_date = datetime.utcnow() + timedelta(days=plan.free_trial_frequency)
+                    elif plan.free_trial_frequency_type == "months":
+                        # Aproximación operativa para fallback: 30 días por mes de trial.
+                        start_date = datetime.utcnow() + timedelta(days=30 * plan.free_trial_frequency)
+
+                    if start_date:
+                        fallback_data["auto_recurring"]["start_date"] = start_date.isoformat() + "Z"
+
+                if notification_url:
+                    fallback_data["notification_url"] = notification_url
+
+                response = self.mp_client.preapproval().create(fallback_data)
             
             if response.get("status") not in [200, 201]:
                 logger.error(f"MP Error creating subscription: {response}")
@@ -362,8 +408,20 @@ class SubscriptionService:
         return self.subscription_repo.get_by_user_id(user_id)
     
     def get_active_subscription(self, user_id: int) -> UserSubscription | None:
-        """Obtiene la suscripción activa de un usuario"""
-        return self.subscription_repo.get_active_by_user_id(user_id)
+        """
+        Obtiene la suscripción activa de un usuario.
+
+        Sincroniza contra Mercado Pago cuando exista una suscripción local activa para
+        evitar falsos positivos cuando el usuario cancela desde MP y el webhook tarda.
+        """
+        active_subscription = self.subscription_repo.get_active_by_user_id(user_id)
+
+        if active_subscription and active_subscription.mp_preapproval_id:
+            # Reconciliar estado y membresía con MP antes de devolver resultado.
+            self.get_subscription_status(active_subscription.id)
+            return self.subscription_repo.get_active_by_user_id(user_id)
+
+        return active_subscription
     
     def get_subscription_status(self, subscription_id: int) -> dict:
         """
@@ -387,6 +445,16 @@ class SubscriptionService:
                         subscription.updated_at = datetime.utcnow()
                         self.subscription_repo.update(subscription)
                         logger.info(f"Subscription {subscription_id} status updated to {mp_status}")
+
+                    effective_status = mp_status or subscription.status
+                    user = self.user_repo.get_by_id(subscription.user_id)
+                    if user:
+                        if effective_status == "authorized" and user.membership != "premium":
+                            user.membership = "premium"
+                            self.user_repo.update(user)
+                        elif effective_status in ["paused", "cancelled"] and user.membership == "premium":
+                            user.membership = "gratuito"
+                            self.user_repo.update(user)
             except Exception as exc:
                 logger.warning(f"Could not sync subscription status from MP: {exc}")
         
@@ -830,6 +898,20 @@ class SubscriptionService:
                     if mp_status == "approved":
                         existing_payment.payment_date = datetime.utcnow()
                     self.payment_repo.update(existing_payment)
+
+                # Mantener suscripción/membresía alineadas aunque el pago ya existiera.
+                if mp_status == "approved" and subscription.status != "authorized":
+                    subscription.status = "authorized"
+                    if not subscription.authorized_at:
+                        subscription.authorized_at = datetime.utcnow()
+                    subscription.updated_at = datetime.utcnow()
+                    self.subscription_repo.update(subscription)
+
+                    user = self.user_repo.get_by_id(subscription.user_id)
+                    if user and user.membership != "premium":
+                        user.membership = "premium"
+                        self.user_repo.update(user)
+
                 return {"status": "updated", "payment_id": existing_payment.id}
             
             # Crear registro de pago
@@ -847,9 +929,17 @@ class SubscriptionService:
             
             if mp_status == "approved":
                 payment.payment_date = datetime.utcnow()
+                subscription.status = "authorized"
+                if not subscription.authorized_at:
+                    subscription.authorized_at = datetime.utcnow()
                 subscription.last_payment_date = datetime.utcnow()
                 subscription.payments_count += 1
                 subscription.failed_payments_count = 0
+
+                user = self.user_repo.get_by_id(subscription.user_id)
+                if user and user.membership != "premium":
+                    user.membership = "premium"
+                    self.user_repo.update(user)
             elif mp_status in ["rejected", "cancelled"]:
                 payment.rejection_reason = mp_data.get("status_detail")
                 subscription.failed_payments_count += 1

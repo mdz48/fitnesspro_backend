@@ -1,7 +1,7 @@
 param(
     [string]$BaseUrl = "http://127.0.0.1:8000",
     [int]$UserId = 3,
-    [int]$ExistingPlanId = 18,
+    [int]$ExistingPlanId = 23,
     [switch]$CreatePlan,
     [switch]$UseNoPlan,
     [string]$CardTokenId = "",
@@ -11,7 +11,7 @@ param(
     [string]$ExpectedMpMode = "any",
     [int]$PollIntervalSeconds = 5,
     [int]$MaxPollAttempts = 24,
-    [switch]$SkipLifecycleOps
+    [switch]$RunLifecycleOps
 )
 
 $ErrorActionPreference = "Stop"
@@ -247,7 +247,7 @@ if ($subResp) {
     $summary.final_status = "not_created"
 }
 
-if (-not $SkipLifecycleOps -and $summary.subscription_created) {
+if ($RunLifecycleOps -and $summary.subscription_created) {
     Write-Step "Pruebas de ciclo de vida"
 
     try {
