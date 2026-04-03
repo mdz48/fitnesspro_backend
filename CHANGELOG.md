@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.5.1] - 2026-04-02
+
+### Cambios
+
+- Se agregó `notification_url` en la creación de planes y suscripciones para enrutar eventos recurrentes a `POST /api/webhooks/subscriptions`.
+- Se implementó validación opcional de firma HMAC en webhook de suscripciones (`x-signature` + `x-request-id`) controlada por `MERCADOPAGO_VALIDATE_WEBHOOK_SIGNATURE`.
+- Se añadió endpoint `POST /api/subscriptions/no-plan` para crear suscripciones flexibles sin `preapproval_plan`.
+- Se corrigió el callback de suscripciones para responder con `200 OK` en lugar de declarar `302` sin redirección real.
+
+### Notas
+
+- Si `SERVER_URL` está configurado, el backend usa automáticamente esa base para `notification_url` y callback.
+- Cuando la validación de firma está activa y la firma es inválida, el webhook responde `401`.
+
+## [1.5.0] - 2026-04-02
+
+### Cambios
+
+- Se eliminó por completo el flujo legado de pago único con Mercado Pago.
+- El arranque de la aplicación quedó concentrado en suscripciones y planes recurrentes.
+- Se removieron los routers, servicio, repositorio, modelo y schemas del checkout único.
+
+### Notas
+
+- La monetización pasa a depender exclusivamente de suscripciones con Mercado Pago.
+- La implementación en curso prioriza planes, suscripciones, pagos recurrentes y webhooks.
+
 ## [1.4.0] - 2026-03-31
 
 ### Añadido

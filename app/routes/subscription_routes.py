@@ -5,12 +5,14 @@ import os
 import logging
 from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException, status, Request
+from fastapi.responses import JSONResponse
 from app.schemas.subscription_schema import (
     SubscriptionPlanCreateRequest,
     SubscriptionPlanUpdateRequest,
     SubscriptionPlanResponse,
     SubscriptionPlanListResponse,
     SubscriptionCreateRequest,
+    SubscriptionCreateWithoutPlanRequest,
     SubscriptionResponse,
     SubscriptionCheckoutResponse,
     SubscriptionStatusResponse,
@@ -63,6 +65,9 @@ def create_subscription_plan(
     if request.free_trial:
         free_trial_freq = request.free_trial.frequency
         free_trial_type = request.free_trial.frequency_type.value
+
+    SERVER_URL = os.getenv("SERVER_URL")
+    notification_url = f"{SERVER_URL}/api/webhooks/subscriptions" if SERVER_URL else None
     
     result = service.create_plan(
         name=request.name,
@@ -77,7 +82,8 @@ def create_subscription_plan(
         billing_day_proportional=request.billing_day_proportional,
         free_trial_frequency=free_trial_freq,
         free_trial_frequency_type=free_trial_type,
-        back_url=request.back_url
+        back_url=request.back_url,
+        notification_url=notification_url
     )
     
     return service.get_plan(result["id"])
@@ -88,8 +94,8 @@ def create_subscription_plan(
     response_model=SubscriptionPlanListResponse
 )
 def list_subscription_plans(
-    active_only: bool = True,
-    service: SubscriptionPlanServiceDep = None
+    service: SubscriptionPlanServiceDep,
+    active_only: bool = True
 ):
     """
     Lista los planes de suscripción disponibles.
@@ -216,18 +222,61 @@ def create_subscription(
     """
     SERVER_URL = os.getenv("SERVER_URL")
     back_url = f"{SERVER_URL}/api/subscriptions/callback" if SERVER_URL else None
+    notification_url = f"{SERVER_URL}/api/webhooks/subscriptions" if SERVER_URL else None
     
     result = service.create_subscription(
         user_id=request.user_id,
         plan_id=request.plan_id,
         card_token_id=request.card_token_id,
-        back_url=back_url
+        back_url=back_url,
+        notification_url=notification_url
     )
     
     return SubscriptionCheckoutResponse(
         subscription_id=result["subscription_id"],
         mp_preapproval_id=result.get("mp_preapproval_id"),
-        init_point=result["init_point"],
+        init_point=result.get("init_point") or "",
+        sandbox_init_point=result.get("sandbox_init_point"),
+        status=result["status"]
+    )
+
+
+@subscription_router.post(
+    "/subscriptions/no-plan",
+    response_model=SubscriptionCheckoutResponse,
+    status_code=status.HTTP_201_CREATED
+)
+def create_subscription_without_plan(
+    request: SubscriptionCreateWithoutPlanRequest,
+    service: SubscriptionServiceDep
+):
+    """
+    Crea una suscripción sin plan preconfigurado en Mercado Pago.
+
+    Útil para escenarios flexibles o planes experimentales.
+    """
+    SERVER_URL = os.getenv("SERVER_URL")
+    back_url = request.back_url or (f"{SERVER_URL}/api/subscriptions/callback" if SERVER_URL else None)
+    notification_url = f"{SERVER_URL}/api/webhooks/subscriptions" if SERVER_URL else None
+
+    result = service.create_subscription_without_plan(
+        user_id=request.user_id,
+        reason=request.reason,
+        transaction_amount=request.transaction_amount,
+        currency_id=request.currency_id,
+        frequency=request.frequency,
+        frequency_type=request.frequency_type.value,
+        start_date=request.start_date,
+        end_date=request.end_date,
+        card_token_id=request.card_token_id,
+        back_url=back_url,
+        notification_url=notification_url
+    )
+
+    return SubscriptionCheckoutResponse(
+        subscription_id=result["subscription_id"],
+        mp_preapproval_id=result.get("mp_preapproval_id"),
+        init_point=result.get("init_point") or "",
         sandbox_init_point=result.get("sandbox_init_point"),
         status=result["status"]
     )
@@ -517,6 +566,8 @@ def receive_subscription_webhook(
         body["data"] = {"id": query_data_id}
     elif isinstance(body.get("data"), dict) and not body["data"].get("id") and query_data_id:
         body["data"]["id"] = query_data_id
+
+    resource_id = body.get("data", {}).get("id") if isinstance(body.get("data"), dict) else None
     
     logger.info(f"Subscription webhook received: type={notification_type}, id={notification_id}, body={body}")
     
@@ -526,8 +577,18 @@ def receive_subscription_webhook(
     
     # Usar versión sincrónica del servicio
     service = get_subscription_service_sync()
-    
-    # TODO: Agregar validación de firma HMAC si está habilitada
+
+    signature_header = request.headers.get("x-signature")
+    request_id_header = request.headers.get("x-request-id")
+    if not service.verify_webhook_signature(signature_header, resource_id, request_id_header):
+        logger.warning("Invalid subscription webhook signature")
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={
+                "status": "ignored",
+                "reason": "invalid_signature"
+            }
+        )
     
     try:
         result = service.process_webhook_notification(body)
@@ -561,7 +622,7 @@ def receive_subscription_webhook(
 
 @subscription_router.get(
     "/subscriptions/callback",
-    status_code=status.HTTP_302_FOUND
+    status_code=status.HTTP_200_OK
 )
 def subscription_callback(
     preapproval_id: str = None,

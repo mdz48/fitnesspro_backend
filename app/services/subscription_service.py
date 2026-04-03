@@ -3,6 +3,8 @@ Servicio para gestionar suscripciones de usuarios con Mercado Pago
 """
 import logging
 import json
+import hmac
+import hashlib
 from datetime import datetime
 from fastapi import HTTPException
 from app.shared.config.mercado_pago import MercadoPagoConfig
@@ -39,7 +41,8 @@ class SubscriptionService:
         user_id: int,
         plan_id: int,
         card_token_id: str | None = None,
-        back_url: str | None = None
+        back_url: str | None = None,
+        notification_url: str | None = None
     ) -> dict:
         """
         Crea una suscripción para un usuario basada en un plan.
@@ -106,6 +109,9 @@ class SubscriptionService:
                 },
                 "back_url": back_url or plan.back_url
             }
+
+            if notification_url:
+                subscription_data["notification_url"] = notification_url
             
             # Si hay token de tarjeta, crear como autorizado
             if card_token_id:
@@ -207,7 +213,8 @@ class SubscriptionService:
         start_date: datetime | None = None,
         end_date: datetime | None = None,
         card_token_id: str | None = None,
-        back_url: str | None = None
+        back_url: str | None = None,
+        notification_url: str | None = None
     ) -> dict:
         """
         Crea una suscripción sin plan asociado (más flexible, menos organizado).
@@ -265,6 +272,8 @@ class SubscriptionService:
                 subscription_data["auto_recurring"]["end_date"] = end_date.isoformat()
             if back_url:
                 subscription_data["back_url"] = back_url
+            if notification_url:
+                subscription_data["notification_url"] = notification_url
             if card_token_id:
                 subscription_data["card_token_id"] = card_token_id
                 subscription_data["status"] = "authorized"
@@ -882,3 +891,47 @@ class SubscriptionService:
             "charged_back": "refunded"
         }
         return status_map.get(mp_status, "waiting_for_gateway")
+
+    def verify_webhook_signature(
+        self,
+        signature_header: str | None,
+        resource_id: str | None,
+        request_id: str | None
+    ) -> bool:
+        """
+        Valida la firma HMAC del webhook de Mercado Pago cuando está habilitada.
+
+        Formato esperado en `x-signature`: ts=<timestamp>,v1=<hmac_hex>
+        Template oficial: id:{data.id};request-id:{x-request-id};ts:{ts};
+        """
+        if not self.mp_config.validate_webhook_signature:
+            return True
+
+        secret = self.mp_config.webhook_secret
+        if not secret:
+            logger.warning("Webhook signature validation enabled but secret is missing")
+            return False
+
+        if not signature_header or not resource_id or not request_id:
+            return False
+
+        parts: dict[str, str] = {}
+        for item in signature_header.split(","):
+            if "=" not in item:
+                continue
+            key, value = item.split("=", 1)
+            parts[key.strip()] = value.strip()
+
+        ts = parts.get("ts")
+        received_hash = parts.get("v1")
+        if not ts or not received_hash:
+            return False
+
+        manifest = f"id:{resource_id};request-id:{request_id};ts:{ts};"
+        expected_hash = hmac.new(
+            secret.encode("utf-8"),
+            manifest.encode("utf-8"),
+            hashlib.sha256
+        ).hexdigest()
+
+        return hmac.compare_digest(received_hash, expected_hash)

@@ -55,7 +55,7 @@ class SubscriptionPlanCreateRequest(BaseModel):
     
     frequency: int = Field(1, ge=1, description="Cada cuánto se cobra")
     frequency_type: FrequencyType = Field(FrequencyType.MONTHS, description="Tipo de frecuencia")
-    transaction_amount: float = Field(..., gt=0, description="Monto del cobro")
+    transaction_amount: float = Field(149.0, gt=0, description="Monto del cobro")
     currency_id: str = Field("MXN", max_length=10, description="Moneda")
     
     repetitions: Optional[int] = Field(None, ge=1, description="Número de cobros (None=ilimitado)")
@@ -73,7 +73,7 @@ class SubscriptionPlanCreateRequest(BaseModel):
                 "reason": "FitnessPro Premium - Mensual",
                 "frequency": 1,
                 "frequency_type": "months",
-                "transaction_amount": 29.99,
+                "transaction_amount": 149.0,
                 "currency_id": "MXN",
                 "billing_day": 1,
                 "billing_day_proportional": True,
@@ -129,7 +129,7 @@ class SubscriptionPlanResponse(BaseModel):
                 "reason": "FitnessPro Premium - Mensual",
                 "frequency": 1,
                 "frequency_type": "months",
-                "transaction_amount": 29.99,
+                "transaction_amount": 149.0,
                 "currency_id": "MXN",
                 "billing_day": 1,
                 "billing_day_proportional": True,

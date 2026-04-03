@@ -3,6 +3,7 @@ Servicio para gestionar planes de suscripción con Mercado Pago
 """
 import logging
 import json
+import httpx
 from datetime import datetime
 from fastapi import HTTPException
 from app.shared.config.mercado_pago import MercadoPagoConfig
@@ -23,6 +24,76 @@ class SubscriptionPlanService:
         self.plan_repo = plan_repository
         self.mp_config = mp_config
         self.mp_client = mp_config.get_client()
+
+    def _mp_create_plan(self, plan_data: dict) -> dict:
+        """Crea un preapproval_plan en Mercado Pago con fallback REST para SDKs antiguos."""
+        if hasattr(self.mp_client, "preapproval_plan"):
+            return self.mp_client.preapproval_plan().create(plan_data)
+
+        headers = {
+            "Authorization": f"Bearer {self.mp_config.access_token}",
+            "Content-Type": "application/json"
+        }
+        with httpx.Client(timeout=30.0) as client:
+            response = client.post(
+                "https://api.mercadopago.com/preapproval_plan",
+                headers=headers,
+                json=plan_data
+            )
+
+        response_json = {}
+        try:
+            response_json = response.json()
+        except Exception:
+            response_json = {"message": response.text}
+
+        return {
+            "status": response.status_code,
+            "response": response_json
+        }
+
+    def _mp_update_plan(self, mp_plan_id: str, update_data: dict) -> dict:
+        """Actualiza un preapproval_plan en Mercado Pago con fallback REST para SDKs antiguos."""
+        if hasattr(self.mp_client, "preapproval_plan"):
+            return self.mp_client.preapproval_plan().update(mp_plan_id, update_data)
+
+        headers = {
+            "Authorization": f"Bearer {self.mp_config.access_token}",
+            "Content-Type": "application/json"
+        }
+        with httpx.Client(timeout=30.0) as client:
+            response = client.put(
+                f"https://api.mercadopago.com/preapproval_plan/{mp_plan_id}",
+                headers=headers,
+                json=update_data
+            )
+
+        response_json = {}
+        try:
+            response_json = response.json()
+        except Exception:
+            response_json = {"message": response.text}
+
+        return {
+            "status": response.status_code,
+            "response": response_json
+        }
+
+    def _raise_mp_error(self, response: dict, fallback_message: str) -> None:
+        """Normaliza errores de Mercado Pago conservando status/code originales."""
+        status_code = int(response.get("status") or 503)
+        response_data = response.get("response", {})
+        mp_code = response_data.get("code", "MERCADOPAGO_ERROR")
+        mp_message = response_data.get("message") or fallback_message
+
+        raise HTTPException(
+            status_code=status_code if 400 <= status_code < 600 else 503,
+            detail={
+                "code": mp_code,
+                "message": mp_message,
+                "mp_response": response
+            }
+        )
     
     def create_plan(
         self,
@@ -38,7 +109,8 @@ class SubscriptionPlanService:
         billing_day_proportional: bool = True,
         free_trial_frequency: int | None = None,
         free_trial_frequency_type: str | None = None,
-        back_url: str | None = None
+        back_url: str | None = None,
+        notification_url: str | None = None
     ) -> dict:
         """
         Crea un plan de suscripción en Mercado Pago y lo guarda en BD.
@@ -100,22 +172,18 @@ class SubscriptionPlanService:
             
             if back_url:
                 plan_data["back_url"] = back_url
+
+            if notification_url:
+                plan_data["notification_url"] = notification_url
             
             logger.info(f"Creating subscription plan in MP: {plan_data}")
             
             # Crear plan en Mercado Pago
-            response = self.mp_client.preapproval_plan().create(plan_data)
+            response = self._mp_create_plan(plan_data)
             
             if response.get("status") not in [200, 201]:
                 logger.error(f"MP Error creating plan: {response}")
-                raise HTTPException(
-                    status_code=503,
-                    detail={
-                        "code": "MERCADOPAGO_ERROR",
-                        "message": "Error al crear el plan en Mercado Pago",
-                        "mp_response": response
-                    }
-                )
+                self._raise_mp_error(response, "Error al crear el plan en Mercado Pago")
             
             response_data = response.get("response", {})
             mp_plan_id = response_data.get("id")
@@ -283,17 +351,11 @@ class SubscriptionPlanService:
             # Actualizar en Mercado Pago si hay cambios relevantes
             if update_data and plan.mp_plan_id:
                 logger.info(f"Updating plan in MP: {plan.mp_plan_id}, data={update_data}")
-                response = self.mp_client.preapproval_plan().update(plan.mp_plan_id, update_data)
+                response = self._mp_update_plan(plan.mp_plan_id, update_data)
                 
                 if response.get("status") not in [200, 201]:
                     logger.error(f"MP Error updating plan: {response}")
-                    raise HTTPException(
-                        status_code=503,
-                        detail={
-                            "code": "MERCADOPAGO_ERROR",
-                            "message": "Error al actualizar el plan en Mercado Pago"
-                        }
-                    )
+                    self._raise_mp_error(response, "Error al actualizar el plan en Mercado Pago")
             
             # Actualizar en BD
             if name:

@@ -3,7 +3,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.shared.config.database import engine, Base
 from app.models.UserProgression import WeightProgress
-from app.models.Payment import Payment
 from app.models.SubscriptionPlan import SubscriptionPlan
 from app.models.UserSubscription import UserSubscription
 from app.models.SubscriptionPayment import SubscriptionPayment
@@ -14,7 +13,6 @@ from app.routes.exercise_routes import exercise_router
 from app.routes.workout_plan_routes import workout_plan_router
 from app.routes.recipe_plan_routes import recipe_plan_router
 from app.routes.progression_routes import progression_router
-from app.routes.payment_routes import payment_router
 from app.routes.subscription_routes import subscription_router
 
 
@@ -32,7 +30,6 @@ app.include_router(exercise_router, prefix="/api", tags=["exercises"])
 app.include_router(workout_plan_router, prefix="/api/workout_plans", tags=["workout_plans"])
 app.include_router(recipe_plan_router, prefix="/api/recipe_plans", tags=["recipe_plans"])
 app.include_router(progression_router, prefix="/api", tags=["progression"])
-app.include_router(payment_router, prefix="/api", tags=["payments"])
 app.include_router(subscription_router, prefix="/api", tags=["subscriptions"])
 
 

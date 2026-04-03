@@ -10,7 +10,6 @@ from app.repositories.user_repository import UserRepository
 from app.repositories.recipe_repository import RecipeRepository
 from app.repositories.exercise_repository import ExerciseRepository
 from app.repositories.progression_repository import ProgressionRepository
-from app.repositories.payment_repository import PaymentRepository
 from app.repositories.subscription_plan_repository import SubscriptionPlanRepository
 from app.repositories.user_subscription_repository import UserSubscriptionRepository
 from app.repositories.subscription_payment_repository import SubscriptionPaymentRepository
@@ -18,7 +17,6 @@ from app.services.user_service import UserService
 from app.services.recipe_service import RecipeService
 from app.services.exercise_service import ExerciseService
 from app.services.progression_service import ProgressionService
-from app.services.payment_service import PaymentService
 from app.services.subscription_plan_service import SubscriptionPlanService
 from app.services.subscription_service import SubscriptionService
 from app.services.external_api_service import ExternalAPIClient
@@ -47,11 +45,6 @@ def get_exercise_repository(db: Session = Depends(get_db)) -> ExerciseRepository
 def get_progression_repository(db: Session = Depends(get_db)) -> ProgressionRepository:
     """Inyecta el repositorio de progresión de peso"""
     return ProgressionRepository(db)
-
-
-def get_payment_repository(db: Session = Depends(get_db)) -> PaymentRepository:
-    """Inyecta el repositorio de pagos"""
-    return PaymentRepository(db)
 
 
 def get_subscription_plan_repository(db: Session = Depends(get_db)) -> SubscriptionPlanRepository:
@@ -117,6 +110,8 @@ def get_progression_service(
 ) -> ProgressionService:
     """Inyecta el servicio de progresión de peso"""
     return ProgressionService(repository, user_repository)
+
+
 def get_external_recipe_service(
     api_client: ExternalAPIClient = Depends(get_recipe_api_client),
 ) -> ExternalRecipeService:
@@ -127,15 +122,6 @@ def get_external_recipe_service(
 def get_mercadopago_config() -> MercadoPagoConfig:
     """Inyecta la configuración de Mercado Pago"""
     return MercadoPagoConfig()
-
-
-def get_payment_service(
-    repository: PaymentRepository = Depends(get_payment_repository),
-    user_repository: UserRepository = Depends(get_user_repository),
-    mp_config: MercadoPagoConfig = Depends(get_mercadopago_config)
-) -> PaymentService:
-    """Inyecta el servicio de pagos"""
-    return PaymentService(repository, user_repository, mp_config)
 
 
 def get_subscription_plan_service(
@@ -164,25 +150,11 @@ RecipeServiceDep = Annotated[RecipeService, Depends(get_recipe_service)]
 ExerciseServiceDep = Annotated[ExerciseService, Depends(get_exercise_service)]
 ProgressionServiceDep = Annotated[ProgressionService, Depends(get_progression_service)]
 ExternalRecipeServiceDep = Annotated[ExternalRecipeService, Depends(get_external_recipe_service)]
-PaymentServiceDep = Annotated[PaymentService, Depends(get_payment_service)]
 SubscriptionPlanServiceDep = Annotated[SubscriptionPlanService, Depends(get_subscription_plan_service)]
 SubscriptionServiceDep = Annotated[SubscriptionService, Depends(get_subscription_service)]
 
 
 # === Funciones auxiliares para uso sincrónico ===
-
-def get_payment_service_sync() -> PaymentService:
-    """Obtiene el servicio de pagos de forma sincrónica (para no-async routes)"""
-    from app.shared.config.database import SessionLocal
-    db = SessionLocal()
-    try:
-        repository = PaymentRepository(db)
-        user_repository = UserRepository(db)
-        mp_config = MercadoPagoConfig()
-        return PaymentService(repository, user_repository, mp_config)
-    finally:
-        db.close()
-
 
 def get_subscription_service_sync() -> SubscriptionService:
     """Obtiene el servicio de suscripciones de forma sincrónica (para webhooks)"""
