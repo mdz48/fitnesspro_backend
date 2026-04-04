@@ -273,6 +273,28 @@ class ExerciseService:
                 difficulty=e.difficulty
             ) for e in exercises
         ]
+
+    async def get_exercise_from_db_by_id(self, exercise_id: int) -> ExerciseDatabaseResponse:
+        """Obtiene un ejercicio específico de la base de datos por su ID"""
+        exercise = self.repository.get_by_id(exercise_id)
+        if not exercise:
+            raise ValueError(f"Ejercicio con id {exercise_id} no encontrado")
+
+        return ExerciseDatabaseResponse(
+            id=exercise.id,
+            name=exercise.name,
+            description=exercise.description,
+            user_id=exercise.user_id,
+            scheduled_days=list(exercise.scheduled_days) if exercise.scheduled_days else [],
+            image_url=exercise.image_url or "",
+            bodyparts=list(exercise.bodyparts) if exercise.bodyparts else [],
+            equipments=list(exercise.equipments) if exercise.equipments else [],
+            targetMuscles=list(exercise.targetMuscles) if exercise.targetMuscles else [],
+            secondaryMuscles=list(exercise.secondaryMuscles) if exercise.secondaryMuscles else [],
+            exercise_type=exercise.exercise_type.value if exercise.exercise_type else "",
+            instructions=exercise.instructions or "",
+            difficulty=exercise.difficulty
+        )
         
     async def get_exercises_by_user(self, user_id: int) -> List[ExerciseDatabaseResponse]:
         """Obtiene los ejercicios de un usuario específico desde la base de datos"""
