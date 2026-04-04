@@ -21,7 +21,7 @@ from app.services.subscription_plan_service import SubscriptionPlanService
 from app.services.subscription_service import SubscriptionService
 from app.services.external_api_service import ExternalAPIClient
 from app.services.external_recipe_service import ExternalRecipeService
-from app.shared.config.external_api_config import EXERCISEDB_BASE_URL, MEALDB_BASE_URL
+from app.shared.config.external_api_config import EXERCISEDB_BASE_URL, MEALDB_BASE_URL, get_exercisedb_headers
 from app.shared.config.mercado_pago import MercadoPagoConfig
 
 
@@ -71,7 +71,7 @@ def get_security_service() -> SecurityService:
 
 def get_api_client() -> ExternalAPIClient:
     """Inyecta el cliente de API externa"""
-    return ExternalAPIClient(EXERCISEDB_BASE_URL)
+    return ExternalAPIClient(EXERCISEDB_BASE_URL, default_headers=get_exercisedb_headers())
 
 
 def get_recipe_api_client() -> ExternalAPIClient:

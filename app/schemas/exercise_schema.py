@@ -9,27 +9,28 @@ class ExerciseSchema(BaseModel):
     """Esquema de un ejercicio individual"""
     exerciseId: str = Field(..., description="ID único del ejercicio")
     name: str = Field(..., description="Nombre del ejercicio")
-    gifUrl: str = Field(..., description="URL del GIF demostrativo")
-    targetMuscles: List[str] = Field(..., description="Músculos principales trabajados")
-    bodyParts: List[str] = Field(..., description="Partes del cuerpo involucradas")
-    equipments: List[str] = Field(..., description="Equipos necesarios")
-    secondaryMuscles: List[str] = Field(..., description="Músculos secundarios trabajados")
-    instructions: List[str] = Field(..., description="Instrucciones paso a paso")
+    imageUrl: str = Field(..., description="URL de imagen del ejercicio")
+    bodyParts: List[str] = Field(default_factory=list, description="Partes del cuerpo involucradas")
+    equipments: List[str] = Field(default_factory=list, description="Equipos necesarios")
+    exerciseType: Optional[str] = Field(None, description="Tipo de ejercicio")
+    targetMuscles: List[str] = Field(default_factory=list, description="Músculos principales trabajados")
+    secondaryMuscles: List[str] = Field(default_factory=list, description="Músculos secundarios trabajados")
+    keywords: List[str] = Field(default_factory=list, description="Palabras clave")
+    instructions: List[str] = Field(default_factory=list, description="Instrucciones paso a paso")
 
 
-class PaginationMetadata(BaseModel):
-    """Metadata de paginación"""
-    totalExercises: int = Field(..., description="Total de ejercicios")
-    totalPages: int = Field(..., description="Total de páginas")
-    currentPage: int = Field(..., description="Página actual")
-    previousPage: Optional[str] = Field(None, description="URL de la página anterior")
-    nextPage: Optional[str] = Field(None, description="URL de la página siguiente")
+class CursorMeta(BaseModel):
+    """Metadata cursor-based del proveedor remoto"""
+    total: int = Field(..., description="Total de ejercicios")
+    hasNextPage: bool = Field(..., description="Si existe página siguiente")
+    hasPreviousPage: bool = Field(..., description="Si existe página anterior")
+    nextCursor: Optional[str] = Field(None, description="Cursor para la siguiente página")
 
 
 class ExerciseListResponse(BaseModel):
     """Respuesta completa de la API para lista de ejercicios"""
     success: bool = Field(..., description="Indica si la petición fue exitosa")
-    metadata: PaginationMetadata = Field(..., description="Metadata de paginación")
+    meta: CursorMeta = Field(..., description="Metadata cursor-based")
     data: List[ExerciseSchema] = Field(..., description="Lista de ejercicios")
 
 

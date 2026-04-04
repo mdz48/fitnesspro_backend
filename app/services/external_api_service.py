@@ -6,9 +6,9 @@ from app.services.cache_service import cache
 
 
 class ExternalAPIClient:    
-    def __init__(self, base_url: str, enable_cache: bool = True):
+    def __init__(self, base_url: str, enable_cache: bool = True, default_headers: Optional[Dict[str, str]] = None):
         self.base_url = base_url.rstrip('/')
-        self.client = httpx.AsyncClient(timeout=REQUEST_TIMEOUT)
+        self.client = httpx.AsyncClient(timeout=REQUEST_TIMEOUT, headers=default_headers or {})
         self.enable_cache = enable_cache
     
     async def get(self, endpoint: str, params: Optional[Dict[str, Any]] = None, use_cache: bool = True) -> Any:

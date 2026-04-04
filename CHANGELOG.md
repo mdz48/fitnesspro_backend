@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.5.2] - 2026-04-03
+
+### Cambios
+
+- Se reforzó la compatibilidad del consumo remoto de ejercicios para tolerar respuestas legacy y variaciones de formato.
+- Se normalizó la respuesta remota para mantener el contrato público actual del backend en ejercicios.
+- Se agregó búsqueda remota con fallback local para no romper el frontend cuando el proveedor no expone un path específico.
+
+### Notas
+
+- La configuración de ExerciseDB sigue usando `EXERCISEDB_BASE_URL`, `RAPIDAPI_HOST` y `RAPIDAPI_KEY`.
+- Si el proveedor remoto cambia su contrato, el backend conserva el contrato público mientras mantiene el servicio funcionando.
+
 ## [1.5.1] - 2026-04-02
 
 ### Cambios

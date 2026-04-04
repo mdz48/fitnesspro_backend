@@ -15,9 +15,16 @@ exercise_router = APIRouter()
 async def get_exercises_from_api(
     service: ExerciseServiceDep,
     limit: Optional[int] = Query(None, ge=1, le=25, description="Número máximo de resultados"),
-    offset: Optional[int] = Query(None, ge=0, description="Número de resultados a saltar")
+    offset: Optional[int] = Query(None, ge=0, description="Compatibilidad legacy (no recomendado)"),
+    after: Optional[str] = Query(None, description="Cursor para página siguiente"),
+    before: Optional[str] = Query(None, description="Cursor para página anterior")
 ):
-    return await service.get_all_exercises(limit=limit, offset=offset)
+    return await service.get_all_exercises(limit=limit, offset=offset, after=after, before=before)
+
+
+@exercise_router.get("/exercises/remote/search/{name}", response_model=ExerciseListResponse)
+async def search_remote_exercises_by_name(name: str, service: ExerciseServiceDep):
+    return await service.search_remote_exercises_by_name(name)
 
 
 @exercise_router.get("/exercises/local")

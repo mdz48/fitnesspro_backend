@@ -4,12 +4,12 @@ Servicio para gestionar ejercicios de la API ExerciseDB y de la base de datos
 import unicodedata
 from typing import List, Optional, Dict, Any, Type
 from enum import Enum
+from fastapi import HTTPException
 from app.interfaces.api_client_interface import IAPIClient
 from app.models.Exercise import Exercise
 from app.models.Enums import BodyPartEnum, EquipmentEnum, MuscleEnum
 from app.repositories.exercise_repository import ExerciseRepository
-from app.schemas.exercise_schema import ExerciseDatabaseCreate, ExerciseDatabaseUpdate, ExerciseDatabaseResponse, ExerciseDetailResponse, ExerciseListResponse, ExerciseSchema
-from app.services.translation_service import translation_service
+from app.schemas.exercise_schema import ExerciseDatabaseCreate, ExerciseDatabaseUpdate, ExerciseDatabaseResponse
 
 
 
@@ -32,6 +32,86 @@ class ExerciseService:
         self.bodypart_map = self._build_spanish_to_english_map(BodyPartEnum)
         self.target_map = self._build_spanish_to_english_map(MuscleEnum)
         self.equipment_map = self._build_spanish_to_english_map(EquipmentEnum)
+
+    @staticmethod
+    def _normalize_remote_exercise(exercise: Dict[str, Any]) -> Dict[str, Any]:
+        """Normaliza item remoto al contrato exacto esperado por frontend."""
+        normalized = dict(exercise)
+        normalized["exerciseId"] = str(normalized.get("exerciseId") or normalized.get("id") or "")
+        normalized["imageUrl"] = (
+            normalized.get("imageUrl")
+            or normalized.get("gifUrl")
+            or ""
+        )
+        if not normalized.get("bodyParts") and normalized.get("bodyPart"):
+            normalized["bodyParts"] = [normalized.get("bodyPart")]
+        if not normalized.get("equipments") and normalized.get("equipment"):
+            normalized["equipments"] = [normalized.get("equipment")]
+        if not normalized.get("targetMuscles") and normalized.get("target"):
+            normalized["targetMuscles"] = [normalized.get("target")]
+        normalized.setdefault("bodyParts", [])
+        normalized.setdefault("equipments", [])
+        normalized.setdefault("targetMuscles", [])
+        normalized.setdefault("secondaryMuscles", [])
+        normalized.setdefault("keywords", [])
+        normalized.setdefault("instructions", [])
+        return normalized
+
+    def _coerce_remote_list_response(self, response: Any) -> Dict[str, Any]:
+        """Asegura respuesta success/meta/data aun si el proveedor cambia formato."""
+        if isinstance(response, dict) and isinstance(response.get("data"), list):
+            meta = response.get("meta") if isinstance(response.get("meta"), dict) else {}
+            return {
+                "success": bool(response.get("success", True)),
+                "meta": {
+                    "total": int(meta.get("total", len(response.get("data", [])))),
+                    "hasNextPage": bool(meta.get("hasNextPage", False)),
+                    "hasPreviousPage": bool(meta.get("hasPreviousPage", False)),
+                    "nextCursor": meta.get("nextCursor"),
+                },
+                "data": [self._normalize_remote_exercise(item) for item in response.get("data", [])],
+            }
+
+        if isinstance(response, list):
+            normalized_data = [self._normalize_remote_exercise(item) for item in response if isinstance(item, dict)]
+            return {
+                "success": True,
+                "meta": {
+                    "total": len(normalized_data),
+                    "hasNextPage": False,
+                    "hasPreviousPage": False,
+                    "nextCursor": None,
+                },
+                "data": normalized_data,
+            }
+
+        return {
+            "success": False,
+            "meta": {
+                "total": 0,
+                "hasNextPage": False,
+                "hasPreviousPage": False,
+                "nextCursor": None,
+            },
+            "data": [],
+        }
+
+    def _coerce_remote_detail_response(self, response: Any) -> Dict[str, Any]:
+        """Asegura respuesta success/data para detalle remoto."""
+        if isinstance(response, dict) and isinstance(response.get("data"), dict):
+            return {
+                "success": bool(response.get("success", True)),
+                "data": self._normalize_remote_exercise(response.get("data", {})),
+            }
+        if isinstance(response, dict) and (response.get("exerciseId") or response.get("id")):
+            return {
+                "success": True,
+                "data": self._normalize_remote_exercise(response),
+            }
+        return {
+            "success": False,
+            "data": None,
+        }
 
     @staticmethod
     def _normalize_filter_value(value: str) -> str:
@@ -59,27 +139,21 @@ class ExerciseService:
         # Fallback: estandarizar separadores y espacios para la API remota.
         return value_map.get(normalized_value, " ".join((value or "").replace("_", " ").replace("-", " ").split()))
 
-    async def _process_response(self, response: Any, is_list_of_strings: bool = False) -> Any:
-        """Procesa y traduce la respuesta de la API"""
-        if isinstance(response, dict):
-            if 'data' in response:
-                response['data'] = await translation_service.translate_exercise_data(response['data'])
-            else:
-                response = await translation_service.translate_exercise_data(response)
-        elif isinstance(response, list):
-            if is_list_of_strings:
-                response = await translation_service.translate_list(response)
-            else:
-                response = await translation_service.translate_exercise_data(response)
-        return response
-    
-    async def get_all_exercises(self, limit: Optional[int] = None, offset: Optional[int] = None) -> List[Dict[str, Any]]:
+    async def get_all_exercises(
+        self,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        after: Optional[str] = None,
+        before: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
         Obtiene todos los ejercicios
         
         Args:
             limit: Número máximo de resultados
-            offset: Número de resultados a saltar
+            offset: Compatibilidad legacy (no recomendado)
+            after: Cursor siguiente página
+            before: Cursor página anterior
             
         Returns:
             Lista de ejercicios
@@ -92,11 +166,16 @@ class ExerciseService:
         params = {}
         if limit is not None:
             params['limit'] = limit
-        if offset is not None:
+        # Compatibilidad legacy para clientes viejos.
+        if offset is not None and after is None and before is None:
             params['offset'] = offset
+        if after:
+            params['after'] = after
+        if before:
+            params['before'] = before
             
         response = await self.api_client.get('/exercises', params=params)
-        processed_data = await self._process_response(response)
+        processed_data = self._coerce_remote_list_response(response)
         
         # Guardar en caché
         cache.set("exercises", processed_data, self.cache_ttl, limit=limit, offset=offset)
@@ -117,8 +196,30 @@ class ExerciseService:
         if cached_data:
             return cached_data
 
-        response = await self.api_client.get(f'/exercises/{exercise_id}')
-        processed_data = await self._process_response(response)
+        try:
+            response = await self.api_client.get(f'/exercises/{exercise_id}')
+            processed_data = self._coerce_remote_detail_response(response)
+            if not processed_data.get("data"):
+                raise HTTPException(status_code=404, detail={"code": "EXERCISE_NOT_FOUND", "message": "Ejercicio no encontrado"})
+        except HTTPException:
+            # Fallback conservador: si el proveedor no resuelve el detalle directo,
+            # buscarlo localmente en el listado remoto ya normalizado.
+            exercises = await self.get_all_exercises(limit=100)
+            matching_exercise = next(
+                (
+                    exercise
+                    for exercise in exercises.get("data", [])
+                    if str(exercise.get("exerciseId")) == str(exercise_id)
+                ),
+                None
+            )
+            if not matching_exercise:
+                raise
+
+            processed_data = {
+                "success": True,
+                "data": matching_exercise,
+            }
 
         # Guardar en caché
         cache.set("exercise_detail", processed_data, self.cache_ttl, id=exercise_id)
@@ -141,8 +242,8 @@ class ExerciseService:
         if cached_data:
             return cached_data
 
-        response = await self.api_client.get('/exercises/filter', params={'bodyParts': mapped_bodypart})
-        processed_data = await self._process_response(response)
+        response = await self.api_client.get('/exercises', params={'bodyParts': mapped_bodypart})
+        processed_data = self._coerce_remote_list_response(response)
 
         # Guardar en caché
         cache.set("exercises_bodypart", processed_data, self.cache_ttl, bodypart=mapped_bodypart)
@@ -165,8 +266,8 @@ class ExerciseService:
         if cached_data:
             return cached_data
 
-        response = await self.api_client.get('/exercises/filter', params={'targetMuscles': mapped_target})
-        processed_data = await self._process_response(response)
+        response = await self.api_client.get('/exercises', params={'targetMuscles': mapped_target})
+        processed_data = self._coerce_remote_list_response(response)
 
         # Guardar en caché
         cache.set("exercises_target", processed_data, self.cache_ttl, target=mapped_target)
@@ -189,8 +290,8 @@ class ExerciseService:
         if cached_data:
             return cached_data
 
-        response = await self.api_client.get('/exercises/filter', params={'equipments': mapped_equipment})
-        processed_data = await self._process_response(response)
+        response = await self.api_client.get('/exercises', params={'equipments': mapped_equipment})
+        processed_data = self._coerce_remote_list_response(response)
 
         # Guardar en caché
         cache.set("exercises_equipment", processed_data, self.cache_ttl, equipment=mapped_equipment)
@@ -208,8 +309,13 @@ class ExerciseService:
         if cached_data:
             return cached_data
 
-        response = await self.api_client.get('/exercises/bodyPartList')
-        processed_data = await self._process_response(response, is_list_of_strings=True)
+        response = await self.api_client.get('/bodyparts')
+        if isinstance(response, dict) and isinstance(response.get("data"), list):
+            processed_data = [item.get("name") for item in response.get("data", []) if isinstance(item, dict) and item.get("name")]
+        elif isinstance(response, list):
+            processed_data = response
+        else:
+            processed_data = []
 
         # Guardar en caché
         cache.set("metadata_bodyparts", processed_data, self.cache_ttl)
@@ -227,8 +333,13 @@ class ExerciseService:
         if cached_data:
             return cached_data
 
-        response = await self.api_client.get('/exercises/targetList')
-        processed_data = await self._process_response(response, is_list_of_strings=True)
+        response = await self.api_client.get('/muscles')
+        if isinstance(response, dict) and isinstance(response.get("data"), list):
+            processed_data = [item.get("name") for item in response.get("data", []) if isinstance(item, dict) and item.get("name")]
+        elif isinstance(response, list):
+            processed_data = response
+        else:
+            processed_data = []
 
         # Guardar en caché
         cache.set("metadata_targets", processed_data, self.cache_ttl)
@@ -246,11 +357,28 @@ class ExerciseService:
         if cached_data:
             return cached_data
 
-        response = await self.api_client.get('/exercises/equipmentList')
-        processed_data = await self._process_response(response, is_list_of_strings=True)
+        response = await self.api_client.get('/equipments')
+        if isinstance(response, dict) and isinstance(response.get("data"), list):
+            processed_data = [item.get("name") for item in response.get("data", []) if isinstance(item, dict) and item.get("name")]
+        elif isinstance(response, list):
+            processed_data = response
+        else:
+            processed_data = []
 
         # Guardar en caché
         cache.set("metadata_equipment", processed_data, self.cache_ttl)
+        return processed_data
+
+    async def search_remote_exercises_by_name(self, name: str) -> Dict[str, Any]:
+        """Busca ejercicios remotos por nombre en el proveedor nuevo."""
+        cached_data = cache.get("exercises_remote_search", name=name)
+        if cached_data:
+            return cached_data
+
+        response = await self.api_client.get('/exercises', params={'name': name, 'limit': 25})
+        processed_data = self._coerce_remote_list_response(response)
+
+        cache.set("exercises_remote_search", processed_data, self.cache_ttl, name=name)
         return processed_data
 
     async def get_exercises_from_db(self) -> List[ExerciseDatabaseResponse]:
