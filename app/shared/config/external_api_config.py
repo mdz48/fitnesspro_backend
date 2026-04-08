@@ -5,15 +5,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-_DEFAULT_EXERCISEDB_BASE_URL = "https://edb-with-videos-and-images-by-ascendapi.p.rapidapi.com/api/v1"
-_DEFAULT_RAPIDAPI_HOST = "edb-with-videos-and-images-by-ascendapi.p.rapidapi.com"
+_DEFAULT_EXERCISEDB_BASE_URL = "https://exercisedb.p.rapidapi.com"
+_DEFAULT_RAPIDAPI_HOST = "exercisedb.p.rapidapi.com"
 
 
 def _resolve_exercisedb_base_url() -> str:
 	configured = os.getenv("EXERCISEDB_BASE_URL")
 	if not configured:
-		return _DEFAULT_EXERCISEDB_BASE_URL
-	if "exercisedb.p.rapidapi.com" in configured:
 		return _DEFAULT_EXERCISEDB_BASE_URL
 	return configured
 
@@ -21,8 +19,6 @@ def _resolve_exercisedb_base_url() -> str:
 def _resolve_rapidapi_host() -> str:
 	configured = os.getenv("RAPIDAPI_HOST")
 	if not configured:
-		return _DEFAULT_RAPIDAPI_HOST
-	if configured == "exercisedb.p.rapidapi.com":
 		return _DEFAULT_RAPIDAPI_HOST
 	return configured
 

@@ -14,6 +14,8 @@ from app.schemas.exercise_schema import ExerciseDatabaseCreate, ExerciseDatabase
 
 
 from app.services.cache_service import cache
+from app.services.translation_service import translation_service
+from app.shared.config.external_api_config import CACHE_TTL
 
 class ExerciseService:
     """Servicio para consumir ExerciseDB API y gestionar ejercicios en BD"""
@@ -28,10 +30,30 @@ class ExerciseService:
         """
         self.api_client = api_client
         self.repository = repository
-        self.cache_ttl = 3600 # 1 hora de caché
+        self.cache_ttl = CACHE_TTL
         self.bodypart_map = self._build_spanish_to_english_map(BodyPartEnum)
         self.target_map = self._build_spanish_to_english_map(MuscleEnum)
         self.equipment_map = self._build_spanish_to_english_map(EquipmentEnum)
+
+    def _remote_base_url(self) -> str:
+        return getattr(self.api_client, "base_url", "")
+
+    @staticmethod
+    def _extract_remote_items(response: Any) -> List[Dict[str, Any]]:
+        """Extrae ejercicios desde respuestas que vengan como lista o envoltorio."""
+        if isinstance(response, list):
+            return [item for item in response if isinstance(item, dict)]
+
+        if isinstance(response, dict):
+            data = response.get("data")
+            if isinstance(data, list):
+                return [item for item in data if isinstance(item, dict)]
+            if isinstance(data, dict):
+                return [data]
+            if response.get("id") or response.get("exerciseId"):
+                return [response]
+
+        return []
 
     @staticmethod
     def _normalize_remote_exercise(exercise: Dict[str, Any]) -> Dict[str, Any]:
@@ -139,6 +161,143 @@ class ExerciseService:
         # Fallback: estandarizar separadores y espacios para la API remota.
         return value_map.get(normalized_value, " ".join((value or "").replace("_", " ").replace("-", " ").split()))
 
+    @staticmethod
+    def _field_matches(item: Dict[str, Any], field_name: str, expected_value: str) -> bool:
+        """Comprueba si un campo normalizado contiene el valor esperado."""
+        normalized_expected = ExerciseService._normalize_filter_value(expected_value)
+        field_value = item.get(field_name, [])
+
+        if isinstance(field_value, str):
+            field_values = [field_value]
+        elif isinstance(field_value, list):
+            field_values = field_value
+        else:
+            field_values = []
+
+        return any(
+            ExerciseService._normalize_filter_value(str(value)) == normalized_expected
+            for value in field_values
+            if value is not None
+        )
+
+    @staticmethod
+    def _search_matches(item: Dict[str, Any], query: str) -> bool:
+        """Evalua coincidencia por nombre para búsquedas remotas."""
+        normalized_query = ExerciseService._normalize_filter_value(query)
+        normalized_name = ExerciseService._normalize_filter_value(str(item.get("name", "")))
+        return normalized_query in normalized_name
+
+    @staticmethod
+    def _paginate_catalog(
+        items: List[Dict[str, Any]],
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        after: Optional[str] = None,
+        before: Optional[str] = None,
+    ) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
+        """Aplica paginación local manteniendo la misma metadata pública."""
+        total = len(items)
+        start_index = 0
+        end_index = total
+
+        if after:
+            cursor_index = next(
+                (index for index, item in enumerate(items) if str(item.get("exerciseId")) == str(after)),
+                None,
+            )
+            if cursor_index is not None:
+                start_index = cursor_index + 1
+        elif before:
+            cursor_index = next(
+                (index for index, item in enumerate(items) if str(item.get("exerciseId")) == str(before)),
+                None,
+            )
+            if cursor_index is not None:
+                end_index = cursor_index
+                if limit is not None:
+                    start_index = max(0, end_index - limit)
+        elif offset is not None:
+            start_index = max(0, offset)
+
+        if limit is not None and not before:
+            end_index = min(end_index, start_index + limit)
+
+        start_index = min(start_index, total)
+        end_index = min(max(end_index, start_index), total)
+
+        page = items[start_index:end_index]
+        meta = {
+            "total": total,
+            "hasNextPage": end_index < total,
+            "hasPreviousPage": start_index > 0,
+            "nextCursor": page[-1].get("exerciseId") if page and end_index < total else None,
+        }
+        return page, meta
+
+    async def _get_remote_catalog(self) -> List[Dict[str, Any]]:
+        """Obtiene y cachea el catálogo remoto normalizado de ejercicios."""
+        cached_data = cache.get("exercise_remote_catalog", base_url=self._remote_base_url())
+        if cached_data is not None:
+            return cached_data
+
+        response = await self.api_client.get("/exercises")
+        catalog = [self._normalize_remote_exercise(item) for item in self._extract_remote_items(response)]
+        cache.set("exercise_remote_catalog", catalog, self.cache_ttl, base_url=self._remote_base_url())
+        return catalog
+
+    @staticmethod
+    def _build_list_response(items: List[Dict[str, Any]], total: Optional[int] = None) -> Dict[str, Any]:
+        """Construye la respuesta pública esperada por el frontend."""
+        resolved_total = total if total is not None else len(items)
+        return {
+            "success": True,
+            "meta": {
+                "total": resolved_total,
+                "hasNextPage": False,
+                "hasPreviousPage": False,
+                "nextCursor": items[-1].get("exerciseId") if items else None,
+            },
+            "data": items,
+        }
+
+    @staticmethod
+    def _collect_unique_values(items: List[Dict[str, Any]], field_name: str) -> List[str]:
+        """Recopila valores únicos conservando el orden original."""
+        seen: set[str] = set()
+        result: List[str] = []
+
+        for item in items:
+            field_value = item.get(field_name, [])
+            if isinstance(field_value, str):
+                values = [field_value]
+            elif isinstance(field_value, list):
+                values = field_value
+            else:
+                values = []
+
+            for value in values:
+                normalized_value = " ".join(str(value).split()).strip()
+                normalized_key = ExerciseService._normalize_filter_value(normalized_value)
+                if normalized_value and normalized_key not in seen:
+                    seen.add(normalized_key)
+                    result.append(normalized_value)
+
+        return result
+
+    @staticmethod
+    async def _translate_remote_items(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Traduce una lista de ejercicios remotos sin alterar su estructura."""
+        translated_items = await translation_service.translate_exercise_data(items)
+        if isinstance(translated_items, list):
+            return translated_items
+        return items
+
+    @staticmethod
+    async def _translate_remote_strings(values: List[str]) -> List[str]:
+        """Traduce una lista de textos simples del proveedor remoto."""
+        translated_values = await translation_service.translate_list(values)
+        return translated_values if translated_values else values
+
     async def get_all_exercises(
         self,
         limit: Optional[int] = None,
@@ -158,27 +317,19 @@ class ExerciseService:
         Returns:
             Lista de ejercicios
         """
-        # Intentar obtener del caché
-        cached_data = cache.get("exercises", limit=limit, offset=offset)
-        if cached_data:
+        cached_data = cache.get("exercises", limit=limit, offset=offset, after=after, before=before, base_url=self._remote_base_url())
+        if cached_data is not None:
             return cached_data
 
-        params = {}
-        if limit is not None:
-            params['limit'] = limit
-        # Compatibilidad legacy para clientes viejos.
-        if offset is not None and after is None and before is None:
-            params['offset'] = offset
-        if after:
-            params['after'] = after
-        if before:
-            params['before'] = before
-            
-        response = await self.api_client.get('/exercises', params=params)
-        processed_data = self._coerce_remote_list_response(response)
-        
-        # Guardar en caché
-        cache.set("exercises", processed_data, self.cache_ttl, limit=limit, offset=offset)
+        catalog = await self._get_remote_catalog()
+        page, meta = self._paginate_catalog(catalog, limit=limit, offset=offset, after=after, before=before)
+        translated_page = await self._translate_remote_items(page)
+        processed_data = {
+            "success": True,
+            "meta": meta,
+            "data": translated_page,
+        }
+        cache.set("exercises", processed_data, self.cache_ttl, limit=limit, offset=offset, after=after, before=before, base_url=self._remote_base_url())
         return processed_data
     
     async def get_exercise_by_id(self, exercise_id: str) -> Dict[str, Any]:
@@ -191,38 +342,33 @@ class ExerciseService:
         Returns:
             Datos del ejercicio
         """
-        # Intentar obtener del caché
-        cached_data = cache.get("exercise_detail", id=exercise_id)
-        if cached_data:
+        cached_data = cache.get("exercise_detail", id=exercise_id, base_url=self._remote_base_url())
+        if cached_data is not None:
             return cached_data
 
-        try:
-            response = await self.api_client.get(f'/exercises/{exercise_id}')
-            processed_data = self._coerce_remote_detail_response(response)
-            if not processed_data.get("data"):
-                raise HTTPException(status_code=404, detail={"code": "EXERCISE_NOT_FOUND", "message": "Ejercicio no encontrado"})
-        except HTTPException:
-            # Fallback conservador: si el proveedor no resuelve el detalle directo,
-            # buscarlo localmente en el listado remoto ya normalizado.
-            exercises = await self.get_all_exercises(limit=100)
-            matching_exercise = next(
-                (
-                    exercise
-                    for exercise in exercises.get("data", [])
-                    if str(exercise.get("exerciseId")) == str(exercise_id)
-                ),
-                None
+        catalog = await self._get_remote_catalog()
+        matching_exercise = next(
+            (
+                exercise
+                for exercise in catalog
+                if str(exercise.get("exerciseId")) == str(exercise_id)
+            ),
+            None,
+        )
+        if not matching_exercise:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "EXERCISE_NOT_FOUND", "message": "Ejercicio no encontrado"},
             )
-            if not matching_exercise:
-                raise
 
-            processed_data = {
-                "success": True,
-                "data": matching_exercise,
-            }
+        translated_exercise = await self._translate_remote_items([matching_exercise])
+        exercise_data = translated_exercise[0] if translated_exercise else matching_exercise
+        processed_data = {
+            "success": True,
+            "data": exercise_data,
+        }
 
-        # Guardar en caché
-        cache.set("exercise_detail", processed_data, self.cache_ttl, id=exercise_id)
+        cache.set("exercise_detail", processed_data, self.cache_ttl, id=exercise_id, base_url=self._remote_base_url())
         return processed_data
     
     async def get_exercises_by_bodypart(self, bodypart: str) -> Dict[str, Any]:
@@ -236,17 +382,15 @@ class ExerciseService:
             Lista de ejercicios
         """
         mapped_bodypart = self._map_filter_to_english(bodypart, self.bodypart_map)
-
-        # Intentar obtener del caché
-        cached_data = cache.get("exercises_bodypart", bodypart=mapped_bodypart)
-        if cached_data:
+        cached_data = cache.get("exercises_bodypart", bodypart=bodypart, mapped_bodypart=mapped_bodypart, base_url=self._remote_base_url())
+        if cached_data is not None:
             return cached_data
 
-        response = await self.api_client.get('/exercises', params={'bodyParts': mapped_bodypart})
-        processed_data = self._coerce_remote_list_response(response)
-
-        # Guardar en caché
-        cache.set("exercises_bodypart", processed_data, self.cache_ttl, bodypart=mapped_bodypart)
+        catalog = await self._get_remote_catalog()
+        filtered_items = [item for item in catalog if self._field_matches(item, "bodyParts", mapped_bodypart)]
+        translated_items = await self._translate_remote_items(filtered_items)
+        processed_data = self._build_list_response(translated_items, total=len(translated_items))
+        cache.set("exercises_bodypart", processed_data, self.cache_ttl, bodypart=bodypart, mapped_bodypart=mapped_bodypart, base_url=self._remote_base_url())
         return processed_data
     
     async def get_exercises_by_target(self, target: str) -> Dict[str, Any]:
@@ -260,17 +404,15 @@ class ExerciseService:
             Lista de ejercicios
         """
         mapped_target = self._map_filter_to_english(target, self.target_map)
-
-        # Intentar obtener del caché
-        cached_data = cache.get("exercises_target", target=mapped_target)
-        if cached_data:
+        cached_data = cache.get("exercises_target", target=target, mapped_target=mapped_target, base_url=self._remote_base_url())
+        if cached_data is not None:
             return cached_data
 
-        response = await self.api_client.get('/exercises', params={'targetMuscles': mapped_target})
-        processed_data = self._coerce_remote_list_response(response)
-
-        # Guardar en caché
-        cache.set("exercises_target", processed_data, self.cache_ttl, target=mapped_target)
+        catalog = await self._get_remote_catalog()
+        filtered_items = [item for item in catalog if self._field_matches(item, "targetMuscles", mapped_target)]
+        translated_items = await self._translate_remote_items(filtered_items)
+        processed_data = self._build_list_response(translated_items, total=len(translated_items))
+        cache.set("exercises_target", processed_data, self.cache_ttl, target=target, mapped_target=mapped_target, base_url=self._remote_base_url())
         return processed_data
     
     async def get_exercises_by_equipment(self, equipment: str) -> Dict[str, Any]:
@@ -284,17 +426,15 @@ class ExerciseService:
             Lista de ejercicios
         """
         mapped_equipment = self._map_filter_to_english(equipment, self.equipment_map)
-
-        # Intentar obtener del caché
-        cached_data = cache.get("exercises_equipment", equipment=mapped_equipment)
-        if cached_data:
+        cached_data = cache.get("exercises_equipment", equipment=equipment, mapped_equipment=mapped_equipment, base_url=self._remote_base_url())
+        if cached_data is not None:
             return cached_data
 
-        response = await self.api_client.get('/exercises', params={'equipments': mapped_equipment})
-        processed_data = self._coerce_remote_list_response(response)
-
-        # Guardar en caché
-        cache.set("exercises_equipment", processed_data, self.cache_ttl, equipment=mapped_equipment)
+        catalog = await self._get_remote_catalog()
+        filtered_items = [item for item in catalog if self._field_matches(item, "equipments", mapped_equipment)]
+        translated_items = await self._translate_remote_items(filtered_items)
+        processed_data = self._build_list_response(translated_items, total=len(translated_items))
+        cache.set("exercises_equipment", processed_data, self.cache_ttl, equipment=equipment, mapped_equipment=mapped_equipment, base_url=self._remote_base_url())
         return processed_data
     
     async def get_body_parts(self) -> List[str]:
@@ -304,21 +444,14 @@ class ExerciseService:
         Returns:
             Lista de partes del cuerpo
         """
-        # Intentar obtener del caché
-        cached_data = cache.get("metadata_bodyparts")
-        if cached_data:
+        cached_data = cache.get("metadata_bodyparts", base_url=self._remote_base_url())
+        if cached_data is not None:
             return cached_data
 
-        response = await self.api_client.get('/bodyparts')
-        if isinstance(response, dict) and isinstance(response.get("data"), list):
-            processed_data = [item.get("name") for item in response.get("data", []) if isinstance(item, dict) and item.get("name")]
-        elif isinstance(response, list):
-            processed_data = response
-        else:
-            processed_data = []
+        catalog = await self._get_remote_catalog()
+        processed_data = await self._translate_remote_strings(self._collect_unique_values(catalog, "bodyParts"))
 
-        # Guardar en caché
-        cache.set("metadata_bodyparts", processed_data, self.cache_ttl)
+        cache.set("metadata_bodyparts", processed_data, self.cache_ttl, base_url=self._remote_base_url())
         return processed_data
     
     async def get_target_muscles(self) -> List[str]:
@@ -328,21 +461,14 @@ class ExerciseService:
         Returns:
             Lista de músculos
         """
-        # Intentar obtener del caché
-        cached_data = cache.get("metadata_targets")
-        if cached_data:
+        cached_data = cache.get("metadata_targets", base_url=self._remote_base_url())
+        if cached_data is not None:
             return cached_data
 
-        response = await self.api_client.get('/muscles')
-        if isinstance(response, dict) and isinstance(response.get("data"), list):
-            processed_data = [item.get("name") for item in response.get("data", []) if isinstance(item, dict) and item.get("name")]
-        elif isinstance(response, list):
-            processed_data = response
-        else:
-            processed_data = []
+        catalog = await self._get_remote_catalog()
+        processed_data = await self._translate_remote_strings(self._collect_unique_values(catalog, "targetMuscles"))
 
-        # Guardar en caché
-        cache.set("metadata_targets", processed_data, self.cache_ttl)
+        cache.set("metadata_targets", processed_data, self.cache_ttl, base_url=self._remote_base_url())
         return processed_data
     
     async def get_equipment_list(self) -> List[str]:
@@ -352,33 +478,27 @@ class ExerciseService:
         Returns:
             Lista de equipos
         """
-        # Intentar obtener del caché
-        cached_data = cache.get("metadata_equipment")
-        if cached_data:
+        cached_data = cache.get("metadata_equipment", base_url=self._remote_base_url())
+        if cached_data is not None:
             return cached_data
 
-        response = await self.api_client.get('/equipments')
-        if isinstance(response, dict) and isinstance(response.get("data"), list):
-            processed_data = [item.get("name") for item in response.get("data", []) if isinstance(item, dict) and item.get("name")]
-        elif isinstance(response, list):
-            processed_data = response
-        else:
-            processed_data = []
+        catalog = await self._get_remote_catalog()
+        processed_data = await self._translate_remote_strings(self._collect_unique_values(catalog, "equipments"))
 
-        # Guardar en caché
-        cache.set("metadata_equipment", processed_data, self.cache_ttl)
+        cache.set("metadata_equipment", processed_data, self.cache_ttl, base_url=self._remote_base_url())
         return processed_data
 
     async def search_remote_exercises_by_name(self, name: str) -> Dict[str, Any]:
         """Busca ejercicios remotos por nombre en el proveedor nuevo."""
-        cached_data = cache.get("exercises_remote_search", name=name)
-        if cached_data:
+        cached_data = cache.get("exercises_remote_search", name=name, base_url=self._remote_base_url())
+        if cached_data is not None:
             return cached_data
 
-        response = await self.api_client.get('/exercises', params={'name': name, 'limit': 25})
-        processed_data = self._coerce_remote_list_response(response)
-
-        cache.set("exercises_remote_search", processed_data, self.cache_ttl, name=name)
+        catalog = await self._get_remote_catalog()
+        filtered_items = [item for item in catalog if self._search_matches(item, name)]
+        translated_items = await self._translate_remote_items(filtered_items)
+        processed_data = self._build_list_response(translated_items, total=len(translated_items))
+        cache.set("exercises_remote_search", processed_data, self.cache_ttl, name=name, base_url=self._remote_base_url())
         return processed_data
 
     async def get_exercises_from_db(self) -> List[ExerciseDatabaseResponse]:

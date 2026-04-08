@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.5.3] - 2026-04-08
+
+### Cambios
+
+- Se actualizó la integración de ExerciseDB para usar el host oficial `exercisedb.p.rapidapi.com` por defecto.
+- El backend ahora normaliza y pagina localmente la respuesta remota de ejercicios para mantener intacto el contrato del frontend.
+- Se conservaron los mismos esquemas de salida para lista, detalle, búsqueda y filtros de ejercicios.
+
+### Notas
+
+- La respuesta pública de ejercicios no cambia; solo se reemplazó la adaptación interna al proveedor externo.
+- `EXERCISEDB_BASE_URL` y `RAPIDAPI_HOST` siguen siendo configurables por entorno.
+
 ## [1.5.2] - 2026-04-03
 
 ### Cambios
