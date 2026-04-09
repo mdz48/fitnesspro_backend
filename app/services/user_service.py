@@ -297,6 +297,11 @@ class UserService:
 
         if not normalized_token:
             raise HTTPException(status_code=400, detail={"code": "INVALID_FCM_TOKEN", "message": "FCM token is required"})
+        if len(normalized_token) > 512:
+            raise HTTPException(
+                status_code=400,
+                detail={"code": "INVALID_FCM_TOKEN", "message": "FCM token is too long"}
+            )
 
         token_record = self.fcm_token_repository.upsert_token(user.id, normalized_token)
         total_tokens = len(self.fcm_token_repository.get_by_user_id(user.id))

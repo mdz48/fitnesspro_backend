@@ -1,6 +1,7 @@
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.core.error_handlers import register_error_handlers
 from app.shared.config.database import engine, Base
 from app.models.UserProgression import WeightProgress
 from app.models.UserFcmToken import UserFcmToken
@@ -23,6 +24,7 @@ logging.basicConfig(
 )
 
 app = FastAPI()
+register_error_handlers(app)
 
 app.include_router(user_router, prefix="/api", tags=["users"])
 app.include_router(recipe_router, prefix="/api", tags=["recipes"])

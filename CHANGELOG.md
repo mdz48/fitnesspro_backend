@@ -9,6 +9,9 @@
 - Se agregó persistencia de tokens FCM por usuario y el endpoint `POST /api/users/{user_id}/fcm-token` para registrar dispositivos.
 - El backend ahora envía notificaciones FCM de tipo `PAYMENT_SUCCESS` cuando Mercado Pago confirma un pago recurrente aprobado.
 - La carga de credenciales Firebase ahora soporta autodetección local de `firebasecredencials.json` (además de variables de entorno) para facilitar desarrollo.
+- Se corrigió la colisión de rutas que causaba `422` en `GET /api/subscriptions/callback` cuando FastAPI intentaba resolverla como `GET /api/subscriptions/{subscription_id}`.
+- Se agregó logging global para `RequestValidationError` con método, path, query, body y detalle de errores para depuración de respuestas `422`.
+- Se ajustó el almacenamiento de `fcm_token` para evitar errores de índice en MySQL (`max key length`) manteniendo unicidad del token por dispositivo.
 
 ## [1.5.3] - 2026-04-08
 

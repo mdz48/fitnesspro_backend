@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from datetime import date
 from typing import Literal
 from datetime import datetime
@@ -45,7 +45,7 @@ class LoginResponse(UserResponse):
 
 
 class FcmTokenRegisterRequest(BaseModel):
-    fcm_token: str
+    fcm_token: str = Field(..., min_length=1, max_length=512)
 
 
 class FcmTokenRegisterResponse(BaseModel):

@@ -14,7 +14,7 @@ class UserFcmToken(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    fcm_token = Column(String(4096), nullable=False, unique=True, index=True)
+    fcm_token = Column(String(512), nullable=False, unique=True)
     is_active = Column(Boolean, nullable=False, default=True)
     last_seen_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)

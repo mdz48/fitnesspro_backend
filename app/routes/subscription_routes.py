@@ -4,7 +4,7 @@ Rutas para suscripciones con Mercado Pago
 import os
 import logging
 from dotenv import load_dotenv
-from fastapi import APIRouter, HTTPException, status, Request
+from fastapi import APIRouter, HTTPException, status, Request, Query
 from fastapi.responses import JSONResponse
 from app.schemas.subscription_schema import (
     SubscriptionPlanCreateRequest,
@@ -441,6 +441,46 @@ def get_active_subscription(
     return subscription
 
 
+# ===== Endpoint de Callback (Fallback) =====
+
+@subscription_router.get(
+    "/subscriptions/callback",
+    status_code=status.HTTP_200_OK
+)
+def subscription_callback(
+    request: Request,
+    preapproval_id: str | None = None,
+    status_param: str | None = Query(default=None, alias="status")
+):
+    """
+    Endpoint de callback para redirecciones de Mercado Pago (fallback).
+
+    La app móvil debe usar polling a GET /api/subscriptions/{id}/status
+    y procesar webhooks en backend.
+
+    Args:
+        request: Request de FastAPI
+        preapproval_id: ID de la suscripción
+        status_param: Estado (authorized, paused, etc.) recibido como query param `status`
+
+    Returns:
+        Respuesta confirmando la redirección
+    """
+    logger.info(
+        "Subscription callback received: preapproval_id=%s status=%s query=%s",
+        preapproval_id,
+        status_param,
+        str(request.query_params),
+    )
+
+    return {
+        "message": "Subscription callback received",
+        "preapproval_id": preapproval_id,
+        "status": status_param,
+        "note": "Para app móvil, consulta el estado con GET /api/subscriptions/{id}/status"
+    }
+
+
 @subscription_router.get(
     "/subscriptions/{subscription_id}",
     response_model=SubscriptionResponse
@@ -722,34 +762,3 @@ def receive_subscription_webhook(
         }
 
 
-# ===== Endpoint de Callback (Fallback) =====
-
-@subscription_router.get(
-    "/subscriptions/callback",
-    status_code=status.HTTP_200_OK
-)
-def subscription_callback(
-    preapproval_id: str = None,
-    status_param: str = None
-):
-    """
-    Endpoint de callback para redirecciones de Mercado Pago (fallback).
-    
-    La app móvil debe usar polling a GET /api/subscriptions/{id}/status
-    y procesar webhooks en backend.
-    
-    Args:
-        preapproval_id: ID de la suscripción
-        status_param: Estado (authorized, paused, etc.)
-        
-    Returns:
-        Respuesta confirmando la redirección
-    """
-    logger.info(f"Subscription callback received: preapproval_id={preapproval_id}, status={status_param}")
-    
-    return {
-        "message": "Subscription callback received",
-        "preapproval_id": preapproval_id,
-        "status": status_param,
-        "note": "Para app móvil, consulta el estado con GET /api/subscriptions/{id}/status"
-    }
