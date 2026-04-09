@@ -1021,6 +1021,7 @@ class SubscriptionService:
             subscription.status = mp_status
             subscription.mp_response = json.dumps(mp_data)
             subscription.updated_at = datetime.utcnow()
+            should_notify_payment_success = False
             
             # Procesar cambios de estado
             if mp_status == "authorized" and old_status != "authorized":
@@ -1031,6 +1032,7 @@ class SubscriptionService:
                     user.membership = "premium"
                     self.user_repo.update(user)
                     logger.info(f"User {subscription.user_id} upgraded to premium")
+                should_notify_payment_success = True
             
             elif mp_status in ["cancelled", "paused"] and old_status == "authorized":
                 # Revocar premium
@@ -1044,6 +1046,15 @@ class SubscriptionService:
                 subscription.cancelled_at = datetime.utcnow()
             
             self.subscription_repo.update(subscription)
+
+            if should_notify_payment_success:
+                logger.info(
+                    "Subscription %s transitioned %s -> %s via preapproval webhook; triggering PAYMENT_SUCCESS notification",
+                    subscription.id,
+                    old_status,
+                    mp_status,
+                )
+                self._send_payment_success_notification(subscription)
             
             logger.info(f"Subscription {subscription.id} updated: {old_status} -> {mp_status}")
             
