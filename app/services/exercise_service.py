@@ -317,19 +317,91 @@ class ExerciseService:
         Returns:
             Lista de ejercicios
         """
-        cached_data = cache.get("exercises", limit=limit, offset=offset, after=after, before=before, base_url=self._remote_base_url())
+        def _to_non_negative_int(value: Any) -> Optional[int]:
+            try:
+                parsed = int(str(value))
+                return parsed if parsed >= 0 else None
+            except (TypeError, ValueError):
+                return None
+
+        effective_limit = limit or 10
+        effective_offset = offset if offset is not None else 0
+
+        # Compatibilidad de cursor: si `after` o `before` llegan como número,
+        # se interpretan como offset para el proveedor remoto.
+        after_offset = _to_non_negative_int(after)
+        before_offset = _to_non_negative_int(before)
+        if after_offset is not None:
+            effective_offset = after_offset
+        elif before_offset is not None:
+            effective_offset = before_offset
+
+        cached_data = cache.get(
+            "exercises",
+            limit=effective_limit,
+            offset=effective_offset,
+            after=after,
+            before=before,
+            base_url=self._remote_base_url(),
+        )
         if cached_data is not None:
             return cached_data
 
-        catalog = await self._get_remote_catalog()
-        page, meta = self._paginate_catalog(catalog, limit=limit, offset=offset, after=after, before=before)
-        translated_page = await self._translate_remote_items(page)
+        params: Dict[str, Any] = {
+            "limit": effective_limit,
+            "offset": effective_offset,
+        }
+
+        response = await self.api_client.get("/exercises", params=params)
+        processed_data = self._coerce_remote_list_response(response)
+        translated_page = await self._translate_remote_items(processed_data.get("data", []))
+
+        raw_meta = processed_data.get("meta", {}) if isinstance(processed_data.get("meta"), dict) else {}
+        provider_meta = response.get("meta") if isinstance(response, dict) and isinstance(response.get("meta"), dict) else {}
+        provider_has_next = provider_meta.get("hasNextPage") if "hasNextPage" in provider_meta else None
+        inferred_has_next = (
+            bool(provider_has_next)
+            if provider_has_next is not None
+            else len(translated_page) >= effective_limit
+        )
+        provider_has_previous = provider_meta.get("hasPreviousPage") if "hasPreviousPage" in provider_meta else None
+        inferred_has_previous = (
+            bool(provider_has_previous)
+            if provider_has_previous is not None
+            else effective_offset > 0
+        )
+        next_cursor = provider_meta.get("nextCursor") if "nextCursor" in provider_meta else None
+        if not next_cursor and inferred_has_next:
+            next_cursor = str(effective_offset + len(translated_page))
+
+        total_from_provider = raw_meta.get("total")
+        if total_from_provider is None:
+            resolved_total = effective_offset + len(translated_page) + (1 if inferred_has_next else 0)
+        else:
+            resolved_total = int(total_from_provider)
+
+        meta = {
+            "total": resolved_total,
+            "hasNextPage": inferred_has_next,
+            "hasPreviousPage": inferred_has_previous,
+            "nextCursor": next_cursor,
+        }
+
         processed_data = {
-            "success": True,
+            "success": bool(processed_data.get("success", True)),
             "meta": meta,
             "data": translated_page,
         }
-        cache.set("exercises", processed_data, self.cache_ttl, limit=limit, offset=offset, after=after, before=before, base_url=self._remote_base_url())
+        cache.set(
+            "exercises",
+            processed_data,
+            self.cache_ttl,
+            limit=effective_limit,
+            offset=effective_offset,
+            after=after,
+            before=before,
+            base_url=self._remote_base_url(),
+        )
         return processed_data
     
     async def get_exercise_by_id(self, exercise_id: str) -> Dict[str, Any]:

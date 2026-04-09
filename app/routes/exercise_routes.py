@@ -15,9 +15,9 @@ exercise_router = APIRouter()
 async def get_exercises_from_api(
     service: ExerciseServiceDep,
     limit: Optional[int] = Query(None, ge=1, le=25, description="Número máximo de resultados"),
-    offset: Optional[int] = Query(None, ge=0, description="Compatibilidad legacy (no recomendado)"),
-    after: Optional[str] = Query(None, description="Cursor para página siguiente"),
-    before: Optional[str] = Query(None, description="Cursor para página anterior")
+    offset: Optional[int] = Query(0, ge=0, description="Índice inicial (paginación oficial con limit + offset)"),
+    after: Optional[str] = Query(None, deprecated=True, description="Legacy: cursor previo. Si es numérico, se interpreta como offset"),
+    before: Optional[str] = Query(None, deprecated=True, description="Legacy: cursor previo. Si es numérico, se interpreta como offset")
 ):
     return await service.get_all_exercises(limit=limit, offset=offset, after=after, before=before)
 

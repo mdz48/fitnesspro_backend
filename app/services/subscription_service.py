@@ -35,6 +35,26 @@ class SubscriptionService:
         self.user_repo = user_repo
         self.mp_config = mp_config
         self.mp_client = mp_config.get_client()
+
+    @staticmethod
+    def _summarize_mp_response(response: dict | None) -> dict:
+        """Resume una respuesta de Mercado Pago para logs sin exponer el payload completo."""
+        if not isinstance(response, dict):
+            return {"type": type(response).__name__}
+
+        response_data = response.get("response", {})
+        summary: dict = {
+            "status": response.get("status"),
+            "response_keys": sorted(response_data.keys()) if isinstance(response_data, dict) else [],
+        }
+
+        if isinstance(response_data, dict):
+            summary["message"] = response_data.get("message")
+            summary["error"] = response_data.get("error")
+            summary["cause"] = response_data.get("cause")
+            summary["id_present"] = bool(response_data.get("id"))
+
+        return summary
     
     def create_subscription(
         self,
@@ -59,9 +79,23 @@ class SubscriptionService:
         Raises:
             HTTPException: Si hay error en la creación
         """
+        logger.info(
+            "Subscription create requested: user_id=%s plan_id=%s has_card_token=%s has_back_url=%s has_notification_url=%s",
+            user_id,
+            plan_id,
+            bool(card_token_id),
+            bool(back_url),
+            bool(notification_url),
+        )
+
         # Verificar usuario
         user = self.user_repo.get_by_id(user_id)
         if not user:
+            logger.warning(
+                "Subscription creation rejected: user not found (user_id=%s, plan_id=%s)",
+                user_id,
+                plan_id,
+            )
             raise HTTPException(
                 status_code=404,
                 detail={"code": "USER_NOT_FOUND", "message": "Usuario no encontrado"}
@@ -70,12 +104,23 @@ class SubscriptionService:
         # Verificar plan
         plan = self.plan_repo.get_by_id(plan_id)
         if not plan:
+            logger.warning(
+                "Subscription creation rejected: plan not found (user_id=%s, plan_id=%s)",
+                user_id,
+                plan_id,
+            )
             raise HTTPException(
                 status_code=404,
                 detail={"code": "PLAN_NOT_FOUND", "message": "Plan de suscripción no encontrado"}
             )
         
         if plan.status != "active":
+            logger.warning(
+                "Subscription creation rejected: inactive plan (user_id=%s, plan_id=%s, plan_status=%s)",
+                user_id,
+                plan_id,
+                plan.status,
+            )
             raise HTTPException(
                 status_code=400,
                 detail={"code": "PLAN_INACTIVE", "message": "El plan no está activo"}
@@ -84,6 +129,13 @@ class SubscriptionService:
         # Verificar que el usuario no tenga una suscripción activa
         active_sub = self.subscription_repo.get_active_by_user_id(user_id)
         if active_sub:
+            logger.warning(
+                "Subscription creation rejected: active subscription already exists (user_id=%s, plan_id=%s, active_subscription_id=%s, active_status=%s)",
+                user_id,
+                plan_id,
+                active_sub.id,
+                active_sub.status,
+            )
             raise HTTPException(
                 status_code=400,
                 detail={
@@ -115,7 +167,18 @@ class SubscriptionService:
                 subscription_data["card_token_id"] = card_token_id
                 subscription_data["status"] = "authorized"
             
-            logger.info(f"Creating subscription in MP for user {user_id}: plan={plan_id}")
+            logger.info(
+                "Subscription payload prepared for Mercado Pago: %s",
+                {
+                    "user_id": user_id,
+                    "plan_id": plan_id,
+                    "external_reference": external_reference,
+                    "preapproval_plan_id": plan.mp_plan_id,
+                    "has_card_token": bool(card_token_id),
+                    "has_notification_url": bool(notification_url),
+                    "back_url": subscription_data["back_url"],
+                },
+            )
             
             # Crear suscripción en Mercado Pago
             response = self.mp_client.preapproval().create(subscription_data)
@@ -125,6 +188,14 @@ class SubscriptionService:
                 and not card_token_id
                 and (response.get("response", {}).get("message", "").lower() == "card_token_id is required")
             ):
+                logger.warning(
+                    "Mercado Pago rejected plan-based subscription with missing card token: %s",
+                    {
+                        "user_id": user_id,
+                        "plan_id": plan_id,
+                        "response": self._summarize_mp_response(response),
+                    },
+                )
                 logger.info(
                     "MP requires card_token_id for plan-based subscription. "
                     "Falling back to no-plan checkout flow while preserving local plan_id=%s",
@@ -164,10 +235,35 @@ class SubscriptionService:
                 if notification_url:
                     fallback_data["notification_url"] = notification_url
 
+                logger.info(
+                    "Fallback payload prepared for Mercado Pago: %s",
+                    {
+                        "user_id": user_id,
+                        "plan_id": plan_id,
+                        "external_reference": external_reference,
+                        "has_notification_url": bool(notification_url),
+                        "has_card_token": bool(card_token_id),
+                        "auto_recurring": {
+                            "frequency": fallback_data["auto_recurring"]["frequency"],
+                            "frequency_type": fallback_data["auto_recurring"]["frequency_type"],
+                            "transaction_amount": fallback_data["auto_recurring"]["transaction_amount"],
+                            "currency_id": fallback_data["auto_recurring"]["currency_id"],
+                            "has_start_date": "start_date" in fallback_data["auto_recurring"],
+                        },
+                    },
+                )
+
                 response = self.mp_client.preapproval().create(fallback_data)
             
             if response.get("status") not in [200, 201]:
-                logger.error(f"MP Error creating subscription: {response}")
+                logger.error(
+                    "Mercado Pago returned an error creating the subscription: %s",
+                    {
+                        "user_id": user_id,
+                        "plan_id": plan_id,
+                        "response": self._summarize_mp_response(response),
+                    },
+                )
                 raise HTTPException(
                     status_code=503,
                     detail={
@@ -184,7 +280,14 @@ class SubscriptionService:
             mp_status = response_data.get("status", "pending")
             
             if not mp_preapproval_id:
-                logger.error(f"MP response without preapproval ID: {response_data}")
+                logger.error(
+                    "Mercado Pago response without preapproval ID: %s",
+                    {
+                        "user_id": user_id,
+                        "plan_id": plan_id,
+                        "response": self._summarize_mp_response(response),
+                    },
+                )
                 raise HTTPException(
                     status_code=503,
                     detail={
@@ -223,7 +326,16 @@ class SubscriptionService:
             
             subscription = self.subscription_repo.create(subscription)
             
-            logger.info(f"Subscription created: id={subscription.id}, mp_id={mp_preapproval_id}, status={mp_status}")
+            logger.info(
+                "Subscription created successfully: %s",
+                {
+                    "subscription_id": subscription.id,
+                    "user_id": user_id,
+                    "plan_id": plan_id,
+                    "mp_preapproval_id": mp_preapproval_id,
+                    "status": mp_status,
+                },
+            )
             
             return {
                 "subscription_id": subscription.id,
@@ -239,7 +351,11 @@ class SubscriptionService:
         except HTTPException:
             raise
         except Exception as exc:
-            logger.exception(f"Error creating subscription for user {user_id}: {str(exc)}")
+            logger.exception(
+                "Error creating subscription for user %s with plan %s",
+                user_id,
+                plan_id,
+            )
             raise HTTPException(
                 status_code=500,
                 detail={"code": "SUBSCRIPTION_ERROR", "message": "Error al crear la suscripción"}
@@ -277,8 +393,25 @@ class SubscriptionService:
         Returns:
             Diccionario con datos de la suscripción
         """
+        logger.info(
+            "Subscription without plan requested: user_id=%s reason=%s amount=%s currency=%s frequency=%s frequency_type=%s has_card_token=%s has_back_url=%s has_notification_url=%s",
+            user_id,
+            reason,
+            transaction_amount,
+            currency_id,
+            frequency,
+            frequency_type,
+            bool(card_token_id),
+            bool(back_url),
+            bool(notification_url),
+        )
+
         user = self.user_repo.get_by_id(user_id)
         if not user:
+            logger.warning(
+                "Subscription without plan rejected: user not found (user_id=%s)",
+                user_id,
+            )
             raise HTTPException(
                 status_code=404,
                 detail={"code": "USER_NOT_FOUND", "message": "Usuario no encontrado"}
@@ -286,6 +419,12 @@ class SubscriptionService:
         
         active_sub = self.subscription_repo.get_active_by_user_id(user_id)
         if active_sub:
+            logger.warning(
+                "Subscription without plan rejected: active subscription already exists (user_id=%s, active_subscription_id=%s, active_status=%s)",
+                user_id,
+                active_sub.id,
+                active_sub.status,
+            )
             raise HTTPException(
                 status_code=400,
                 detail={
@@ -321,10 +460,35 @@ class SubscriptionService:
                 subscription_data["card_token_id"] = card_token_id
                 subscription_data["status"] = "authorized"
             
+            logger.info(
+                "Subscription without plan payload prepared for Mercado Pago: %s",
+                {
+                    "user_id": user_id,
+                    "external_reference": external_reference,
+                    "has_card_token": bool(card_token_id),
+                    "has_notification_url": bool(notification_url),
+                    "has_back_url": bool(back_url),
+                    "auto_recurring": {
+                        "frequency": frequency,
+                        "frequency_type": frequency_type,
+                        "transaction_amount": transaction_amount,
+                        "currency_id": currency_id,
+                        "has_start_date": bool(start_date),
+                        "has_end_date": bool(end_date),
+                    },
+                },
+            )
+
             response = self.mp_client.preapproval().create(subscription_data)
             
             if response.get("status") not in [200, 201]:
-                logger.error(f"MP Error creating subscription: {response}")
+                logger.error(
+                    "Mercado Pago returned an error creating the subscription without plan: %s",
+                    {
+                        "user_id": user_id,
+                        "response": self._summarize_mp_response(response),
+                    },
+                )
                 response_status = int(response.get("status") or 503)
                 raise HTTPException(
                     status_code=response_status if 400 <= response_status < 600 else 503,
@@ -365,6 +529,16 @@ class SubscriptionService:
                 self.user_repo.update(user)
             
             subscription = self.subscription_repo.create(subscription)
+
+            logger.info(
+                "Subscription without plan created successfully: %s",
+                {
+                    "subscription_id": subscription.id,
+                    "user_id": user_id,
+                    "mp_preapproval_id": mp_preapproval_id,
+                    "status": mp_status,
+                },
+            )
             
             return {
                 "subscription_id": subscription.id,
@@ -377,7 +551,7 @@ class SubscriptionService:
         except HTTPException:
             raise
         except Exception as exc:
-            logger.exception(f"Error creating subscription: {str(exc)}")
+            logger.exception("Error creating subscription without plan for user %s", user_id)
             raise HTTPException(
                 status_code=500,
                 detail={"code": "SUBSCRIPTION_ERROR", "message": "Error al crear la suscripción"}

@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Cambios
+
+- Se agregaron logs detallados y sanitizados al flujo de creación de suscripciones para depurar respuestas `400 Bad Request` de Mercado Pago y validaciones locales.
+- Las rutas `POST /api/subscriptions` y `POST /api/subscriptions/no-plan` ahora registran el request entrante, la respuesta del servicio y el detalle de cualquier `HTTPException`.
+
 ## [1.5.3] - 2026-04-08
 
 ### Cambios

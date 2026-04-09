@@ -258,14 +258,48 @@ def create_subscription(
     SERVER_URL = os.getenv("SERVER_URL")
     back_url = f"{SERVER_URL}/api/subscriptions/callback" if SERVER_URL else None
     notification_url = f"{SERVER_URL}/api/webhooks/subscriptions" if SERVER_URL else None
-    
-    result = service.create_subscription(
-        user_id=request.user_id,
-        plan_id=request.plan_id,
-        card_token_id=request.card_token_id,
-        back_url=back_url,
-        notification_url=notification_url
+
+    logger.info(
+        "POST /subscriptions received: user_id=%s plan_id=%s has_card_token=%s has_back_url=%s has_notification_url=%s",
+        request.user_id,
+        request.plan_id,
+        bool(request.card_token_id),
+        bool(back_url),
+        bool(notification_url),
     )
+    
+    try:
+        result = service.create_subscription(
+            user_id=request.user_id,
+            plan_id=request.plan_id,
+            card_token_id=request.card_token_id,
+            back_url=back_url,
+            notification_url=notification_url
+        )
+        logger.info(
+            "POST /subscriptions succeeded: user_id=%s plan_id=%s subscription_id=%s mp_preapproval_id=%s status=%s",
+            request.user_id,
+            request.plan_id,
+            result.get("subscription_id"),
+            result.get("mp_preapproval_id"),
+            result.get("status"),
+        )
+    except HTTPException as exc:
+        logger.warning(
+            "POST /subscriptions failed: user_id=%s plan_id=%s status=%s detail=%s",
+            request.user_id,
+            request.plan_id,
+            exc.status_code,
+            exc.detail,
+        )
+        raise
+    except Exception:
+        logger.exception(
+            "Unexpected error in POST /subscriptions: user_id=%s plan_id=%s",
+            request.user_id,
+            request.plan_id,
+        )
+        raise
     
     return SubscriptionCheckoutResponse(
         subscription_id=result["subscription_id"],
@@ -294,19 +328,54 @@ def create_subscription_without_plan(
     back_url = request.back_url or (f"{SERVER_URL}/api/subscriptions/callback" if SERVER_URL else None)
     notification_url = f"{SERVER_URL}/api/webhooks/subscriptions" if SERVER_URL else None
 
-    result = service.create_subscription_without_plan(
-        user_id=request.user_id,
-        reason=request.reason,
-        transaction_amount=request.transaction_amount,
-        currency_id=request.currency_id,
-        frequency=request.frequency,
-        frequency_type=request.frequency_type.value,
-        start_date=request.start_date,
-        end_date=request.end_date,
-        card_token_id=request.card_token_id,
-        back_url=back_url,
-        notification_url=notification_url
+    logger.info(
+        "POST /subscriptions/no-plan received: user_id=%s reason=%s amount=%s currency=%s frequency=%s frequency_type=%s has_card_token=%s has_back_url=%s has_notification_url=%s",
+        request.user_id,
+        request.reason,
+        request.transaction_amount,
+        request.currency_id,
+        request.frequency,
+        request.frequency_type.value,
+        bool(request.card_token_id),
+        bool(back_url),
+        bool(notification_url),
     )
+
+    try:
+        result = service.create_subscription_without_plan(
+            user_id=request.user_id,
+            reason=request.reason,
+            transaction_amount=request.transaction_amount,
+            currency_id=request.currency_id,
+            frequency=request.frequency,
+            frequency_type=request.frequency_type.value,
+            start_date=request.start_date,
+            end_date=request.end_date,
+            card_token_id=request.card_token_id,
+            back_url=back_url,
+            notification_url=notification_url
+        )
+        logger.info(
+            "POST /subscriptions/no-plan succeeded: user_id=%s subscription_id=%s mp_preapproval_id=%s status=%s",
+            request.user_id,
+            result.get("subscription_id"),
+            result.get("mp_preapproval_id"),
+            result.get("status"),
+        )
+    except HTTPException as exc:
+        logger.warning(
+            "POST /subscriptions/no-plan failed: user_id=%s status=%s detail=%s",
+            request.user_id,
+            exc.status_code,
+            exc.detail,
+        )
+        raise
+    except Exception:
+        logger.exception(
+            "Unexpected error in POST /subscriptions/no-plan: user_id=%s",
+            request.user_id,
+        )
+        raise
 
     return SubscriptionCheckoutResponse(
         subscription_id=result["subscription_id"],
