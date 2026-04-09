@@ -1,6 +1,7 @@
 from pydantic import BaseModel, ConfigDict, EmailStr
 from datetime import date
 from typing import Literal
+from datetime import datetime
 
 class UserBase(BaseModel):
     email: EmailStr | None = None
@@ -41,3 +42,20 @@ class UserResponse(UserBase):
 class LoginResponse(UserResponse):
     access_token: str
     token_type: str
+
+
+class FcmTokenRegisterRequest(BaseModel):
+    fcm_token: str
+
+
+class FcmTokenRegisterResponse(BaseModel):
+    id: int
+    user_id: int
+    fcm_token: str
+    is_active: bool
+    last_seen_at: datetime
+    created_at: datetime
+    updated_at: datetime
+    total_tokens: int
+
+    model_config = ConfigDict(from_attributes=True)

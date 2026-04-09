@@ -16,3 +16,4 @@ jmespath==1.1.0
 python-dateutil==2.9.0.post0
 s3transfer==0.16.0
 mercadopago==2.3.0
+firebase-admin

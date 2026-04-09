@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.shared.config.database import get_db
 from app.core.security_service import SecurityService
 from app.repositories.user_repository import UserRepository
+from app.repositories.user_fcm_token_repository import UserFcmTokenRepository
 from app.repositories.recipe_repository import RecipeRepository
 from app.repositories.exercise_repository import ExerciseRepository
 from app.repositories.progression_repository import ProgressionRepository
@@ -19,6 +20,7 @@ from app.services.exercise_service import ExerciseService
 from app.services.progression_service import ProgressionService
 from app.services.subscription_plan_service import SubscriptionPlanService
 from app.services.subscription_service import SubscriptionService
+from app.services.firebase_notification_service import FirebaseNotificationService
 from app.services.external_api_service import ExternalAPIClient
 from app.services.external_recipe_service import ExternalRecipeService
 from app.shared.config.external_api_config import EXERCISEDB_BASE_URL, MEALDB_BASE_URL, get_exercisedb_headers
@@ -30,6 +32,11 @@ from app.shared.config.mercado_pago import MercadoPagoConfig
 def get_user_repository(db: Session = Depends(get_db)) -> UserRepository:
     """Inyecta el repositorio de usuarios"""
     return UserRepository(db)
+
+
+def get_user_fcm_token_repository(db: Session = Depends(get_db)) -> UserFcmTokenRepository:
+    """Inyecta el repositorio de tokens FCM de usuarios"""
+    return UserFcmTokenRepository(db)
 
 
 def get_recipe_repository(db: Session = Depends(get_db)) -> RecipeRepository:
@@ -83,10 +90,11 @@ def get_recipe_api_client() -> ExternalAPIClient:
 
 def get_user_service(
     repository: UserRepository = Depends(get_user_repository),
-    security: SecurityService = Depends(get_security_service)
+    security: SecurityService = Depends(get_security_service),
+    fcm_token_repository: UserFcmTokenRepository = Depends(get_user_fcm_token_repository)
 ) -> UserService:
     """Inyecta el servicio de usuarios"""
-    return UserService(repository, security)
+    return UserService(repository, security, fcm_token_repository)
 
 
 def get_recipe_service(
@@ -137,10 +145,12 @@ def get_subscription_service(
     payment_repo: SubscriptionPaymentRepository = Depends(get_subscription_payment_repository),
     plan_repo: SubscriptionPlanRepository = Depends(get_subscription_plan_repository),
     user_repo: UserRepository = Depends(get_user_repository),
-    mp_config: MercadoPagoConfig = Depends(get_mercadopago_config)
+    mp_config: MercadoPagoConfig = Depends(get_mercadopago_config),
+    fcm_token_repository: UserFcmTokenRepository = Depends(get_user_fcm_token_repository)
 ) -> SubscriptionService:
     """Inyecta el servicio de suscripciones"""
-    return SubscriptionService(subscription_repo, payment_repo, plan_repo, user_repo, mp_config)
+    notification_service = FirebaseNotificationService(fcm_token_repository)
+    return SubscriptionService(subscription_repo, payment_repo, plan_repo, user_repo, mp_config, notification_service)
 
 
 # === Type Aliases para anotaciones ===
@@ -165,7 +175,9 @@ def get_subscription_service_sync() -> SubscriptionService:
         payment_repo = SubscriptionPaymentRepository(db)
         plan_repo = SubscriptionPlanRepository(db)
         user_repo = UserRepository(db)
+        fcm_token_repository = UserFcmTokenRepository(db)
         mp_config = MercadoPagoConfig()
-        return SubscriptionService(subscription_repo, payment_repo, plan_repo, user_repo, mp_config)
+        notification_service = FirebaseNotificationService(fcm_token_repository)
+        return SubscriptionService(subscription_repo, payment_repo, plan_repo, user_repo, mp_config, notification_service)
     finally:
         db.close()

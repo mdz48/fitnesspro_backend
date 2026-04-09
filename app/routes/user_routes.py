@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from fastapi import APIRouter, status, Form
-from app.schemas.user_schema import UserCreate, UserUpdate, LoginResponse, UserResponse
+from app.schemas.user_schema import UserCreate, UserUpdate, LoginResponse, UserResponse, FcmTokenRegisterRequest, FcmTokenRegisterResponse
 from app.schemas.daily_content_schema import UserDailyContentResponse
 from app.core.dependencies import UserServiceDep, ExerciseServiceDep, RecipeServiceDep
 
@@ -38,6 +38,11 @@ def read_user(user_id: int, service: UserServiceDep):
 @user_router.put("/users/{user_id}", response_model=UserResponse)
 def update_user(user_id: int, user: UserUpdate, service: UserServiceDep):
     return service.update_user(user_id, user)
+
+
+@user_router.post("/users/{user_id}/fcm-token", response_model=FcmTokenRegisterResponse, status_code=status.HTTP_200_OK)
+def register_fcm_token(user_id: int, request: FcmTokenRegisterRequest, service: UserServiceDep):
+    return service.register_fcm_token(user_id, request.fcm_token)
 
 
 @user_router.post("/login", response_model=LoginResponse)

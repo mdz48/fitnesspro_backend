@@ -12,6 +12,7 @@ from app.repositories.subscription_plan_repository import SubscriptionPlanReposi
 from app.repositories.user_subscription_repository import UserSubscriptionRepository
 from app.repositories.subscription_payment_repository import SubscriptionPaymentRepository
 from app.repositories.user_repository import UserRepository
+from app.services.firebase_notification_service import FirebaseNotificationService
 from app.models.UserSubscription import UserSubscription
 from app.models.SubscriptionPayment import SubscriptionPayment
 
@@ -27,7 +28,8 @@ class SubscriptionService:
         payment_repo: SubscriptionPaymentRepository,
         plan_repo: SubscriptionPlanRepository,
         user_repo: UserRepository,
-        mp_config: MercadoPagoConfig
+        mp_config: MercadoPagoConfig,
+        notification_service: FirebaseNotificationService | None = None,
     ):
         self.subscription_repo = subscription_repo
         self.payment_repo = payment_repo
@@ -35,6 +37,28 @@ class SubscriptionService:
         self.user_repo = user_repo
         self.mp_config = mp_config
         self.mp_client = mp_config.get_client()
+        self.notification_service = notification_service
+
+    def _send_payment_success_notification(self, subscription: UserSubscription) -> None:
+        """Envía una notificación de pago aprobado sin interrumpir el webhook."""
+        if not self.notification_service:
+            return
+
+        try:
+            result = self.notification_service.send_payment_success(subscription.user_id, subscription.id)
+            logger.info(
+                "FCM payment success notification result: user_id=%s subscription_id=%s result=%s",
+                subscription.user_id,
+                subscription.id,
+                result,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to send FCM payment success notification for user_id=%s subscription_id=%s: %s",
+                subscription.user_id,
+                subscription.id,
+                exc,
+            )
 
     @staticmethod
     def _summarize_mp_response(response: dict | None) -> dict:
@@ -1086,6 +1110,8 @@ class SubscriptionService:
                         user.membership = "premium"
                         self.user_repo.update(user)
 
+                    self._send_payment_success_notification(subscription)
+
                 return {"status": "updated", "payment_id": existing_payment.id}
             
             # Crear registro de pago
@@ -1114,6 +1140,7 @@ class SubscriptionService:
                 if user and user.membership != "premium":
                     user.membership = "premium"
                     self.user_repo.update(user)
+                self._send_payment_success_notification(subscription)
             elif mp_status in ["rejected", "cancelled"]:
                 payment.rejection_reason = mp_data.get("status_detail")
                 subscription.failed_payments_count += 1

@@ -11,6 +11,7 @@ from google.oauth2 import id_token
 from app.models.User import User
 from app.schemas.user_schema import UserCreate, UserUpdate, LoginResponse
 from app.repositories.user_repository import UserRepository
+from app.repositories.user_fcm_token_repository import UserFcmTokenRepository
 from app.core.security_service import SecurityService
 
 logger = logging.getLogger(__name__)
@@ -22,7 +23,7 @@ load_dotenv(dotenv_path=ENV_PATH)
 class UserService:
     """Servicio para gestionar usuarios con DI"""
     
-    def __init__(self, repository: UserRepository, security: SecurityService):
+    def __init__(self, repository: UserRepository, security: SecurityService, fcm_token_repository: UserFcmTokenRepository):
         """
         Inicializa el servicio con sus dependencias
         
@@ -32,6 +33,7 @@ class UserService:
         """
         self.repository = repository
         self.security = security
+        self.fcm_token_repository = fcm_token_repository
 
     def _normalize_membership(self, membership: str | None) -> str | None:
         if membership == "free":
@@ -287,3 +289,27 @@ class UserService:
                 setattr(user, key, value)
 
         return self.repository.update(user)
+
+    def register_fcm_token(self, user_id: int, fcm_token: str):
+        """Registra o actualiza el token FCM de un usuario."""
+        user = self.get_user_by_id(user_id)
+        normalized_token = fcm_token.strip()
+
+        if not normalized_token:
+            raise HTTPException(status_code=400, detail={"code": "INVALID_FCM_TOKEN", "message": "FCM token is required"})
+
+        token_record = self.fcm_token_repository.upsert_token(user.id, normalized_token)
+        total_tokens = len(self.fcm_token_repository.get_by_user_id(user.id))
+
+        logger.info("FCM token registered for user_id=%s token_id=%s", user.id, token_record.id)
+
+        return {
+            "id": token_record.id,
+            "user_id": token_record.user_id,
+            "fcm_token": token_record.fcm_token,
+            "is_active": token_record.is_active,
+            "last_seen_at": token_record.last_seen_at,
+            "created_at": token_record.created_at,
+            "updated_at": token_record.updated_at,
+            "total_tokens": total_tokens,
+        }

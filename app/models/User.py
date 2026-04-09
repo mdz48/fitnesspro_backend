@@ -26,6 +26,7 @@ class User(Base):
     target_weight = Column(Float, nullable=True)
     membership = Column(Enum("gratuito", "premium", "admin"), default="gratuito", nullable=False)
 
+    fcm_tokens = relationship("UserFcmToken", back_populates="user", cascade="all, delete-orphan")
     exercises = relationship("Exercise", back_populates="user")
     workout_plans = relationship("WorkoutPlan", back_populates="user")
     recipe_plans = relationship("RecipePlan", back_populates="user")

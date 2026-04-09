@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.shared.config.database import engine, Base
 from app.models.UserProgression import WeightProgress
+from app.models.UserFcmToken import UserFcmToken
 from app.models.SubscriptionPlan import SubscriptionPlan
 from app.models.UserSubscription import UserSubscription
 from app.models.SubscriptionPayment import SubscriptionPayment
