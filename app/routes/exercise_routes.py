@@ -31,6 +31,11 @@ async def search_remote_exercises_by_name(name: str, service: ExerciseServiceDep
 async def get_exercises_from_db(service: ExerciseServiceDep):
     return await service.get_exercises_from_db()
 
+
+@exercise_router.get("/exercises/local/{exercise_id}", response_model=ExerciseDatabaseResponse)
+async def get_exercise_from_db_by_id(exercise_id: int, service: ExerciseServiceDep):
+    return await service.get_exercise_from_db_by_id(exercise_id)
+
 @exercise_router.get("/exercises/community/{user_id}")
 async def get_community_exercises(user_id: int, service: ExerciseServiceDep):
     return await service.get_community_exercises(user_id)
